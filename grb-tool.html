@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Safe Drone Academy - Operational Volume Tool</title>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfhPQUXbEELjFw1HTJAguGUYV85vWv010&libraries=geometry,drawing,places"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script>
+        let map;
+        let drawingManager;
+        let groundRiskPolygon = null;
+        let contingencyPolygon = null;
+        let flightGeographyPolygon = null;
+        let adjacentVolumePolygon = null;
+
+        let contingencyBuffer = 20;  // Distance to shrink from GRB to CV
+        let flightGeographyBuffer = 20;  // Distance to shrink from CV to FG
+        let adjacentVolumeBuffer = 500;  // Distance to expand from GRB to AV
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 53.3498, lng: -6.2603 },
+                zoom: 10,
+                mapTypeId: "hybrid"
+            });
+
+            let input = document.getElementById("searchInput");
+            let searchBox = new google.maps.places.SearchBox(input);
+
+            searchBox.addListener("places_changed", function () {
+                let places = searchBox.getPlaces();
+                if (places.length === 0) return;
+
+                let bounds = new google.maps.LatLngBounds();
+                places.forEach(place => {
+                    if (!place.geometry) return;
+                    bounds.extend(place.geometry.location);
+                });
+
+                map.fitBounds(bounds);
+            });
+
+            drawingManager = new google.maps.drawing.DrawingManager({
+                drawingMode: google.maps.drawing.OverlayType.POLYGON,
+                drawingControl: true,
+                drawingControlOptions: {
+                    position: google.maps.ControlPosition.TOP_CENTER,
+                    drawingModes: [google.maps.drawing.OverlayType.POLYGON]
+                },
+                polygonOptions: {
+                    editable: true,
+                    strokeColor: "red",
+                    fillColor: "red",
+                    fillOpacity: 0.5
+                }
+            });
+
+            drawingManager.setMap(map);
+            google.maps.event.addListener(drawingManager, 'overlaycomplete', function (event) {
+                if (event.type === google.maps.drawing.OverlayType.POLYGON) {
+                    if (groundRiskPolygon) groundRiskPolygon.setMap(null);
+                    groundRiskPolygon = event.overlay;
+                    attachBufferEvents();
+                    generateBuffers();
+                }
+            });
+        }
+
+        function searchLocation() {
+            let query = document.getElementById("searchInput").value;
+            let geocoder = new google.maps.Geocoder();
+
+            if (/^-?\d+\.\d+,-?\d+\.\d+$/.test(query)) {
+                let [lat, lng] = query.split(',').map(Number);
+                map.setCenter({ lat, lng });
+                map.setZoom(14);
+            } else {
+                geocoder.geocode({ address: query }, function (results, status) {
+                    if (status === "OK" && results[0]) {
+                        map.setCenter(results[0].geometry.location);
+                        map.setZoom(14);
+                    } else {
+                        alert("Location not found. Try again.");
+                    }
+                });
+            }
+        }
+
+        function attachBufferEvents() {
+            google.maps.event.addListener(groundRiskPolygon.getPath(), 'set_at', generateBuffers);
+            google.maps.event.addListener(groundRiskPolygon.getPath(), 'insert_at', generateBuffers);
+        }
+
+        function generateBuffers() {
+            if (!groundRiskPolygon) return;
+
+            let grbPath = groundRiskPolygon.getPath().getArray().map(p => [p.lng(), p.lat()]);
+            grbPath.push(grbPath[0]); // Close it
+            let geoJsonPolygon = turf.polygon([grbPath]);
+
+            // Clear previous
+            if (contingencyPolygon) contingencyPolygon.setMap(null);
+            if (flightGeographyPolygon) flightGeographyPolygon.setMap(null);
+            if (adjacentVolumePolygon) adjacentVolumePolygon.setMap(null);
+
+            // Recreate GRB polygon first to keep it visually underneath the CV and FG
+            let grbOptions = {
+                paths: groundRiskPolygon.getPath(),
+                strokeColor: "red",
+                strokeWeight: 2,
+                fillColor: "red",
+                fillOpacity: 0.4,
+                editable: true,
+                map: map
+            };
+            groundRiskPolygon.setMap(null);
+            groundRiskPolygon = new google.maps.Polygon(grbOptions);
+            attachBufferEvents();
+
+            // CV (inside GRB)
+            let cvBuffer = turf.buffer(geoJsonPolygon, -contingencyBuffer, { units: 'meters' });
+            if (cvBuffer) {
+                contingencyPolygon = createGooglePolygon(cvBuffer, "orange", 2, 0.15);
+
+                // FG (inside CV)
+                let fgBuffer = turf.buffer(cvBuffer, -flightGeographyBuffer, { units: 'meters' });
+                if (fgBuffer) {
+                    flightGeographyPolygon = createGooglePolygon(fgBuffer, "green", 2, 0.25);
+                }
+            }
+
+            // AV (outside GRB)
+            let avBuffer = turf.buffer(geoJsonPolygon, adjacentVolumeBuffer, { units: 'meters' });
+            if (avBuffer) {
+                adjacentVolumePolygon = createGooglePolygon(avBuffer, "black", 1, 0.15);
+            }
+        }
+
+        function createGooglePolygon(geoJson, color, strokeWeight = 1, fillOpacity = 0.3) {
+            let coordinates = geoJson.geometry.coordinates[0].map(coord => new google.maps.LatLng(coord[1], coord[0]));
+            return new google.maps.Polygon({
+                paths: coordinates,
+                strokeColor: color,
+                strokeWeight: strokeWeight,
+                fillColor: color,
+                fillOpacity: fillOpacity,
+                map: map
+            });
+        }
+
+        function updateContingencyBuffer(value) {
+            contingencyBuffer = parseInt(value);
+            if (groundRiskPolygon) generateBuffers();
+        }
+
+        function updateFlightGeographyBuffer(value) {
+            flightGeographyBuffer = parseInt(value);
+            if (groundRiskPolygon) generateBuffers();
+        }
+
+        function updateAdjacentVolumeBuffer(value) {
+            adjacentVolumeBuffer = parseInt(value);
+            if (groundRiskPolygon) generateBuffers();
+        }
+
+        function clearPolygons() {
+            if (groundRiskPolygon) groundRiskPolygon.setMap(null);
+            if (contingencyPolygon) contingencyPolygon.setMap(null);
+            if (flightGeographyPolygon) flightGeographyPolygon.setMap(null);
+            if (adjacentVolumePolygon) adjacentVolumePolygon.setMap(null);
+            groundRiskPolygon = null;
+            contingencyPolygon = null;
+            flightGeographyPolygon = null;
+            adjacentVolumePolygon = null;
+        }
+
+        function togglePolygon(polygon) {
+            if (!polygon) return;
+            polygon.setMap(polygon.getMap() ? null : map);
+        }
+
+        function exportToKML() {
+            let kmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            kmlContent += '<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n';
+
+            function polygonToKML(polygon, name, lineColor) {
+                if (!polygon) return "";
+                let path = polygon.getPath().getArray();
+                let kmlLine = `<Placemark>\n<name>${name}</name>\n<Style><LineStyle><color>${lineColor}</color><width>2</width></LineStyle></Style>\n<LineString>\n<tessellate>1</tessellate>\n<coordinates>\n`;
+                path.forEach(point => kmlLine += `${point.lng()},${point.lat()},0\n`);
+                kmlLine += `${path[0].lng()},${path[0].lat()},0\n</coordinates>\n</LineString>\n</Placemark>\n`;
+                return kmlLine;
+            }
+
+            kmlContent += polygonToKML(flightGeographyPolygon, "Flight Geography", "ff00ff00");
+            kmlContent += polygonToKML(contingencyPolygon, "Contingency Volume", "ff00aaff");
+            kmlContent += polygonToKML(groundRiskPolygon, "Ground Risk Buffer", "ff0000ff");
+            kmlContent += polygonToKML(adjacentVolumePolygon, "Adjacent Volume", "ff000000");
+
+            kmlContent += '</Document>\n</kml>';
+            let blob = new Blob([kmlContent], { type: "application/vnd.google-earth.kml+xml" });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "operational_volume.kml";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+
+    <style>
+        .gm-svpc,
+        .gmnoprint {
+            transform: scale(1.5);
+            transform-origin: top left;
+        }
+
+        .gmnoprint {
+            margin: 10px !important;
+        }
+    </style>
+</head>
+<body onload="initMap()">
+    <div style="text-align: center;">
+        <img src="https://i.imgur.com/2fiJuTI.png"
+             alt="Safe Drone Academy Logo"
+             style="width: 200px; height: auto;">
+    </div>
+    <h2>Safe Drone Academy - Operational Volume Tool</h2>
+
+    <input type="text" id="searchInput" placeholder="Enter place or lat,lng">
+    <button onclick="searchLocation()">Search</button>
+
+    <div id="map" style="height: 600px; width: 100%;"></div>
+    <br>
+
+    <label for="cvInput">Ground Risk Buffer Width (m):</label>
+    <input type="number" id="cvInput" min="0" max="200" value="20" oninput="updateContingencyBuffer(this.value)">
+    <br>
+
+    <label for="fgInput">Contingency Volume Width (m):</label>
+    <input type="number" id="fgInput" min="0" max="200" value="20" oninput="updateFlightGeographyBuffer(this.value)">
+    <br>
+
+    <label for="avInput">Adjacent Volume Width (m):</label>
+    <input type="number" id="avInput" min="200" max="5000" value="500" oninput="updateAdjacentVolumeBuffer(this.value)">
+    <br>
+
+    <button onclick="exportToKML()">Export KML</button>
+    <button onclick="clearPolygons()">Clear All</button>
+    <button onclick="togglePolygon(flightGeographyPolygon)">Toggle FG</button>
+    <button onclick="togglePolygon(contingencyPolygon)">Toggle CV</button>
+    <button onclick="togglePolygon(groundRiskPolygon)">Toggle GRB</button>
+    <button onclick="togglePolygon(adjacentVolumePolygon)">Toggle AV</button>
+</body>
+</html>
