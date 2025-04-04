@@ -1,325 +1,286 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Safe Drone Academy - Operational Volume Tool</title>
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfhPQUXbEELjFw1HTJAguGUYV85vWv010&libraries=geometry,drawing,places"></script>
-  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-  <style>
-    .gm-svpc, .gmnoprint {
-      transform: scale(1.5);
-      transform-origin: top left;
-    }
-    .gmnoprint { margin: 10px !important; }
-  </style>
+    <title>Safe Drone Academy - Operational Volume Tool</title>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfhPQUXbEELjFw1HTJAguGUYV85vWv010&libraries=geometry,drawing,places"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <style>
+        .gm-svpc,
+        .gmnoprint {
+            transform: scale(1.5);
+            transform-origin: top left;
+        }
+        .gmnoprint {
+            margin: 10px !important;
+        }
+    </style>
 </head>
 <body onload="initMap()">
-<div style="text-align: center;">
-  <img src="https://i.imgur.com/2fiJuTI.png" alt="Safe Drone Academy Logo" style="width:66px;height:auto;">
-</div>
-<h2>Safe Drone Academy - Operational Volume Tool</h2>
+    <div style="text-align: center;">
+        <img src="https://i.imgur.com/2fiJuTI.png" alt="Safe Drone Academy Logo" style="width: 66px; height: auto;">
+    </div>
+    <h2>Safe Drone Academy - Operational Volume Tool</h2>
 
-<!-- Search bar -->
-<input type="text" id="searchInput" placeholder="Enter place or lat,lng">
-<button onclick="searchLocation()">Search</button>
-<br><br>
+    <input type="text" id="searchInput" placeholder="Enter place or lat,lng">
+    <button onclick="searchLocation()">Search</button>
+    <br><br>
 
-<!-- Upload KML -->
-<label for="kmlUpload">Upload KML File:</label>
-<input type="file" id="kmlUpload" accept=".kml" onchange="handleKmlUpload(event)">
-<br><br>
+    <label for="kmlUpload">Upload KML File:</label>
+    <input type="file" id="kmlUpload" accept=".kml" onchange="handleKmlUpload(event)">
+    <br><br>
 
-<!-- Map -->
-<div id="map" style="height: 600px; width: 100%;"></div>
-<br>
+    <div id="map" style="height: 600px; width: 100%;"></div>
+    <br>
 
-<!-- Sliders -->
-<label for="cvInput">Contingency Volume Width (m):</label>
-<input type="number" id="cvInput" min="0" max="200" value="20" oninput="updateBuffers()">
-<br>
-<label for="grbInput">Ground Risk Buffer Width (m):</label>
-<input type="number" id="grbInput" min="0" max="2000" value="100" oninput="updateBuffers()">
-<br>
-<label for="avInput">Adjacent Volume Width (m):</label>
-<input type="number" id="avInput" min="200" max="5000" value="500" oninput="updateBuffers()">
-<br>
+    <label for="cvInput">Ground Risk Buffer Width (m):</label>
+    <input type="number" id="cvInput" min="0" max="1500" value="30" oninput="updateContingencyBuffer(this.value)">
+    <br>
 
-<!-- Buttons -->
-<button onclick="exportToKML()">Export KML</button>
-<button onclick="clearPolygons()">Clear All</button>
-<button onclick="toggleAll(fgPolygons)">Toggle FG</button>
-<button onclick="toggleAll(cvPolygons)">Toggle CV</button>
-<button onclick="toggleAll(grbPolygons)">Toggle GRB</button>
-<button onclick="toggleAll(avPolygons)">Toggle AV</button>
+    <label for="fgInput">Contingency Volume Width (m):</label>
+    <input type="number" id="fgInput" min="0" max="200" value="20" oninput="updateFlightGeographyBuffer(this.value)">
+    <br>
+
+    <label for="avInput">Adjacent Volume Width (m):</label>
+    <input type="number" id="avInput" min="200" max="5000" value="500" oninput="updateAdjacentVolumeBuffer(this.value)">
+    <br>
+
+    <button onclick="clearPolygons()">Clear All</button>
+    <button onclick="exportToKML()">Export KML</button>
+    <button onclick="toggleAll(fgPolygons)">Toggle FG</button>
+    <button onclick="toggleAll(cvPolygons)">Toggle CV</button>
+    <button onclick="toggleAll(grbPolygons)">Toggle GRB</button>
+    <button onclick="toggleAll(avPolygons)">Toggle AV</button>
 
 <script>
 let map;
 let drawingManager;
-let fgPolygons = [], cvPolygons = [], grbPolygons = [], avPolygons = [];
+let grbPolygons = [];
+let cvPolygons = [];
+let fgPolygons = [];
+let avPolygons = [];
+
 let contingencyBuffer = 20;
-let groundRiskBuffer = 100;
+let flightGeographyBuffer = 20;
 let adjacentVolumeBuffer = 500;
 
 function initMap() {
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 53.3498, lng: -6.2603 },
-    zoom: 10,
-    mapTypeId: "hybrid"
-  });
-
-  let input = document.getElementById("searchInput");
-  let searchBox = new google.maps.places.SearchBox(input);
-
-  searchBox.addListener("places_changed", function () {
-    let places = searchBox.getPlaces();
-    if (places.length === 0) return;
-    let bounds = new google.maps.LatLngBounds();
-    places.forEach(place => { if (place.geometry) bounds.extend(place.geometry.location); });
-    map.fitBounds(bounds);
-    setTimeout(() => map.setZoom(Math.floor(map.getZoom() * 0.5)), 500);
-  });
-
-  drawingManager = new google.maps.drawing.DrawingManager({
-    drawingMode: google.maps.drawing.OverlayType.POLYGON,
-    drawingControl: true,
-    drawingControlOptions: {
-      position: google.maps.ControlPosition.TOP_CENTER,
-      drawingModes: [google.maps.drawing.OverlayType.POLYGON]
-    },
-    polygonOptions: {
-      editable: true,
-      strokeColor: "green",
-      fillColor: "green",
-      fillOpacity: 0.5
-    }
-  });
-
-  drawingManager.setMap(map);
-  google.maps.event.addListener(drawingManager, 'overlaycomplete', function (event) {
-    if (event.type === google.maps.drawing.OverlayType.POLYGON) {
-      const polygon = event.overlay;
-      fgPolygons.push(polygon);
-      generateBuffers(polygon);
-      focusOnPolygon(polygon, 0.8);
-    }
-  });
-}
-
-function focusOnPolygon(polygon, zoomFactor = 0.8) {
-  const bounds = new google.maps.LatLngBounds();
-  polygon.getPath().forEach(latlng => bounds.extend(latlng));
-  map.fitBounds(bounds);
-  setTimeout(() => map.setZoom(Math.floor(map.getZoom() * zoomFactor)), 500);
-}
-
-function searchLocation() {
-  let query = document.getElementById("searchInput").value;
-  let geocoder = new google.maps.Geocoder();
-
-  if (/^-?\d+\.\d+,-?\d+\.\d+$/.test(query)) {
-    let [lat, lng] = query.split(',').map(Number);
-    map.setCenter({ lat, lng });
-    map.setZoom(14);
-  } else {
-    geocoder.geocode({ address: query }, function (results, status) {
-      if (status === "OK" && results[0]) {
-        map.setCenter(results[0].geometry.location);
-        map.setZoom(14);
-      } else {
-        alert("Location not found. Try again.");
-      }
+    map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 53.3498, lng: -6.2603 },
+        zoom: 10,
+        mapTypeId: "hybrid"
     });
-  }
+
+    const input = document.getElementById("searchInput");
+    const searchBox = new google.maps.places.SearchBox(input);
+
+    searchBox.addListener("places_changed", () => {
+        const places = searchBox.getPlaces();
+        if (places.length === 0) return;
+        const bounds = new google.maps.LatLngBounds();
+        places.forEach(place => {
+            if (place.geometry) bounds.extend(place.geometry.location);
+        });
+        map.fitBounds(bounds);
+        setTimeout(() => map.setZoom(Math.floor(map.getZoom() * 0.8)), 500);
+    });
+
+    drawingManager = new google.maps.drawing.DrawingManager({
+        drawingMode: google.maps.drawing.OverlayType.POLYGON,
+        drawingControl: true,
+        drawingControlOptions: {
+            position: google.maps.ControlPosition.TOP_CENTER,
+            drawingModes: [google.maps.drawing.OverlayType.POLYGON]
+        },
+        polygonOptions: {
+            editable: true,
+            strokeColor: "red",
+            fillColor: "red",
+            fillOpacity: 0.3,
+            zIndex: 1
+        }
+    });
+
+    drawingManager.setMap(map);
+    google.maps.event.addListener(drawingManager, 'overlaycomplete', function (event) {
+        if (event.type === google.maps.drawing.OverlayType.POLYGON) {
+            const polygon = event.overlay;
+            grbPolygons.push(polygon);
+            attachBufferEvents(polygon);
+            generateBuffers(polygon);
+            focusOnPolygon(polygon, 0.8);
+        }
+    });
 }
 
-function generateBuffers(fgPolygon) {
-  const index = fgPolygons.indexOf(fgPolygon);
-
-  // 🧹 First, clear old buffers linked to this FG
-  if (index > -1) {
-    if (cvPolygons[index]) {
-      cvPolygons[index].setMap(null);
-      cvPolygons[index] = null;
-    }
-    if (grbPolygons[index]) {
-      grbPolygons[index].setMap(null);
-      grbPolygons[index] = null;
-    }
-    if (avPolygons[index]) {
-      avPolygons[index].setMap(null);
-      avPolygons[index] = null;
-    }
-  }
-
-  // 🏗️ Now generate new buffers
-  const path = fgPolygon.getPath().getArray().map(p => [p.lng(), p.lat()]);
-  path.push(path[0]);
-  const geoJsonPolygon = turf.polygon([path]);
-
-  const cvBuffer = turf.buffer(geoJsonPolygon, contingencyBuffer, { units: 'meters' });
-  const grbBuffer = turf.buffer(cvBuffer, groundRiskBuffer, { units: 'meters' });
-  const avBuffer = turf.buffer(cvBuffer, adjacentVolumeBuffer, { units: 'meters' });
-
-  // 🗂️ Save the new buffers back in the arrays
-  if (index > -1) {
-    	cvPolygons[index] = createGooglePolygon(cvBuffer, "orange", 1, 0.15, 3);
-	grbPolygons[index] = createGooglePolygon(grbBuffer, "red", 1, 0.15, 2);
-	avPolygons[index] = createGooglePolygon(avBuffer, "black", 2, 0.15, 1);
-  } else {
-    // If somehow FG wasn't in array (shouldn't happen), just push
-    cvPolygons.push(createGooglePolygon(cvBuffer, "orange", 1, 0.15));
-    grbPolygons.push(createGooglePolygon(grbBuffer, "red", 1, 0.15));
-    avPolygons.push(createGooglePolygon(avBuffer, "black", 2, 0.15));
-  }
-}
-
-
-function createGooglePolygon(geoJson, color, strokeWeight = 1, fillOpacity = 0.3, zIndex = 1) {
-  const coordinates = geoJson.geometry.coordinates[0].map(coord => new google.maps.LatLng(coord[1], coord[0]));
-  return new google.maps.Polygon({
-    paths: coordinates,
-    strokeColor: color,
-    strokeWeight: strokeWeight,
-    fillColor: color,
-    fillOpacity: fillOpacity,
-    map: map,
-    zIndex: zIndex    // 🆕 Set the drawing order
-  });
-}
-
-
-function updateBuffers() {
-  contingencyBuffer = parseInt(document.getElementById("cvInput").value);
-  groundRiskBuffer = parseInt(document.getElementById("grbInput").value);
-  adjacentVolumeBuffer = parseInt(document.getElementById("avInput").value);
-
-  [...cvPolygons, ...grbPolygons, ...avPolygons].forEach(p => p.setMap(null));
-  cvPolygons = [];
-  grbPolygons = [];
-  avPolygons = [];
-
-  fgPolygons.forEach(generateBuffers);
-}
-
-function clearPolygons() {
-  [...fgPolygons, ...cvPolygons, ...grbPolygons, ...avPolygons].forEach(p => { if (p) p.setMap(null); });
-  fgPolygons = [];
-  cvPolygons = [];
-  grbPolygons = [];
-  avPolygons = [];
+function focusOnPolygon(polygon, zoomFactor = 0.9) {
+    const bounds = new google.maps.LatLngBounds();
+    polygon.getPath().forEach(latlng => bounds.extend(latlng));
+    map.fitBounds(bounds);
+    setTimeout(() => map.setZoom(Math.floor(map.getZoom() * zoomFactor)), 500);
 }
 
 function attachBufferEvents(polygon) {
-  const listener = () => {
-    updateBuffersForPolygon(polygon);
-  };
-  google.maps.event.addListener(polygon.getPath(), 'set_at', listener);
-  google.maps.event.addListener(polygon.getPath(), 'insert_at', listener);
-  google.maps.event.addListener(polygon.getPath(), 'remove_at', listener);
+    const listener = () => {
+        clearPolygonBuffers(polygon);
+        generateBuffers(polygon);
+    };
+    google.maps.event.addListener(polygon.getPath(), 'set_at', listener);
+    google.maps.event.addListener(polygon.getPath(), 'insert_at', listener);
 }
 
-function updateBuffersForPolygon(polygon) {
-  const index = fgPolygons.indexOf(polygon);
-  if (index > -1) {
-    // Remove old buffers from map
-    if (cvPolygons[index]) {
-      cvPolygons[index].setMap(null);
-      cvPolygons[index] = null;
+function clearPolygonBuffers(grbPolygon) {
+    const index = grbPolygons.indexOf(grbPolygon);
+    if (index > -1) {
+        if (cvPolygons[index]) cvPolygons[index].setMap(null);
+        if (fgPolygons[index]) fgPolygons[index].setMap(null);
+        if (avPolygons[index]) avPolygons[index].setMap(null);
+        cvPolygons[index] = null;
+        fgPolygons[index] = null;
+        avPolygons[index] = null;
     }
-    if (grbPolygons[index]) {
-      grbPolygons[index].setMap(null);
-      grbPolygons[index] = null;
-    }
-    if (avPolygons[index]) {
-      avPolygons[index].setMap(null);
-      avPolygons[index] = null;
-    }
-  }
-
-  // Now safely regenerate buffers
-  generateBuffers(polygon);
 }
 
+function generateBuffers(grbPolygon) {
+    clearPolygonBuffers(grbPolygon);
 
-function toggleAll(polygonArray) {
-  polygonArray.forEach(p => { if (p) p.setMap(p.getMap() ? null : map); });
+    const grbPath = grbPolygon.getPath().getArray().map(p => [p.lng(), p.lat()]);
+    grbPath.push(grbPath[0]);
+    const geoJsonPolygon = turf.polygon([grbPath]);
+
+    const cvBuffer = turf.buffer(geoJsonPolygon, -contingencyBuffer, { units: 'meters' });
+    const fgBuffer = turf.buffer(cvBuffer, -flightGeographyBuffer, { units: 'meters' });
+    const avBuffer = turf.buffer(cvBuffer, adjacentVolumeBuffer, { units: 'meters' });
+
+
+    const cvPolygon = createGooglePolygon(cvBuffer, "orange", 2, 0.15, 2);
+    const avPolygon = createGooglePolygon(avBuffer, "black", 1, 0.15, 2);
+    const index = grbPolygons.indexOf(grbPolygon);
+    let fgPolygon = null;
+
+    if (fgBuffer && fgBuffer.geometry && fgBuffer.geometry.coordinates.length > 0) {
+        fgPolygon = createGooglePolygon(fgBuffer, "green", 2, 0.4, 999);
+    }
+
+    cvPolygons[index] = cvPolygon;
+    fgPolygons[index] = fgPolygon;
+    avPolygons[index] = avPolygon;
+}
+
+function createGooglePolygon(geoJson, color, strokeWeight = 1, fillOpacity = 0.3, zIndex = 1) {
+    const coordinates = geoJson.geometry.coordinates[0].map(coord => new google.maps.LatLng(coord[1], coord[0]));
+    return new google.maps.Polygon({
+        paths: coordinates,
+        strokeColor: color,
+        strokeWeight: strokeWeight,
+        fillColor: color,
+        fillOpacity: fillOpacity,
+        map: map,
+        zIndex: zIndex
+    });
+}
+
+function updateContingencyBuffer(value) {
+    contingencyBuffer = parseInt(value);
+    grbPolygons.forEach(generateBuffers);
+}
+
+function updateFlightGeographyBuffer(value) {
+    flightGeographyBuffer = parseInt(value);
+    grbPolygons.forEach(generateBuffers);
+}
+
+function updateAdjacentVolumeBuffer(value) {
+    adjacentVolumeBuffer = parseInt(value);
+    grbPolygons.forEach(generateBuffers);
+}
+
+function clearPolygons() {
+    [...grbPolygons, ...cvPolygons, ...fgPolygons, ...avPolygons].forEach(p => {
+        if (p) p.setMap(null);
+    });
+    grbPolygons = [];
+    cvPolygons = [];
+    fgPolygons = [];
+    avPolygons = [];
 }
 
 function handleKmlUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
+    const file = event.target.files[0];
+    if (!file) return;
 
-  reader.onload = function(e) {
-    const text = e.target.result;
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(text, "text/xml");
-    const placemarks = xmlDoc.getElementsByTagName("Placemark");
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, "text/xml");
+        const placemarks = xmlDoc.getElementsByTagName("Placemark");
 
-    const allBounds = new google.maps.LatLngBounds();
+        for (let placemark of placemarks) {
+            const coordElements = placemark.getElementsByTagName("coordinates");
+            for (let coords of coordElements) {
+                const coordStr = coords.textContent.trim();
+                const latLngs = coordStr.split(/\s+/).map(pair => {
+                    const [lng, lat] = pair.split(",").map(Number);
+                    return new google.maps.LatLng(lat, lng);
+                });
 
-    for (let placemark of placemarks) {
-      const coordElements = placemark.getElementsByTagName("coordinates");
-      for (let coords of coordElements) {  // ✅ loop through ALL coordinates inside Placemark
-        const coordStr = coords.textContent.trim();
-        const latLngs = coordStr.split(/\s+/).map(pair => {
-          const [lng, lat] = pair.split(",").map(Number);
-          return new google.maps.LatLng(lat, lng);
-        });
-        if (latLngs.length < 3) continue;
+                if (latLngs.length < 3) continue;
 
-        const polygon = new google.maps.Polygon({
-          paths: latLngs,
-          strokeColor: "green",
-          fillColor: "green",
-          fillOpacity: 0.5,
-          strokeWeight: 3,
-          editable: true,
-          map: map
-	  zIndex: 999  // ✅ draw FG on top
-        });
+                const polygon = new google.maps.Polygon({
+                    paths: latLngs,
+                    strokeColor: "red",
+                    fillColor: "red",
+                    fillOpacity: 0.3,
+                    strokeWeight: 2,
+                    editable: true,
+                    map: map,
+                    zIndex: 1
+                });
 
-        fgPolygons.push(polygon);
-	attachBufferEvents(polygon);
-        generateBuffers(polygon);
-        latLngs.forEach(latlng => allBounds.extend(latlng));
-      }
-    }
-
-    if (!allBounds.isEmpty()) {
-      map.fitBounds(allBounds);
-      setTimeout(() => map.setZoom(Math.floor(map.getZoom() * 0.9)), 500);
-    }
-  };
-  reader.readAsText(file);
+                grbPolygons.push(polygon);
+                attachBufferEvents(polygon);
+                generateBuffers(polygon);
+                focusOnPolygon(polygon, 0.9);
+            }
+        }
+    };
+    reader.readAsText(file);
 }
 
+function toggleAll(polygonArray) {
+    polygonArray.forEach(polygon => {
+        if (polygon) polygon.setMap(polygon.getMap() ? null : map);
+    });
+}
 
 function exportToKML() {
-  let kmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  kmlContent += '<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n';
+    let kmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    kmlContent += '<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n';
 
-  function polygonToKML(polygon, name, color) {
-    if (!polygon) return "";
-    let path = polygon.getPath().getArray();
-    let kml = `<Placemark>\n<name>${name}</name>\n<Style><LineStyle><color>${color}</color><width>2</width></LineStyle></Style>\n<LineString>\n<tessellate>1</tessellate>\n<coordinates>\n`;
-    path.forEach(p => kml += `${p.lng()},${p.lat()},0\n`);
-    kml += `${path[0].lng()},${path[0].lat()},0\n</coordinates>\n</LineString>\n</Placemark>\n`;
-    return kml;
-  }
+    function polygonToKML(polygon, name, lineColor) {
+        if (!polygon) return "";
+        let path = polygon.getPath().getArray();
+        let kmlLine = `<Placemark>\n<name>${name}</name>\n<Style><LineStyle><color>${lineColor}</color><width>2</width></LineStyle></Style>\n<LineString>\n<tessellate>1</tessellate>\n<coordinates>\n`;
+        path.forEach(point => kmlLine += `${point.lng()},${point.lat()},0\n`);
+        kmlLine += `${path[0].lng()},${path[0].lat()},0\n</coordinates>\n</LineString>\n</Placemark>\n`;
+        return kmlLine;
+    }
 
-  fgPolygons.forEach((p, i) => kmlContent += polygonToKML(p, `Flight Geography ${i+1}`, "ff00ff00"));
-  cvPolygons.forEach((p, i) => kmlContent += polygonToKML(p, `Contingency Volume ${i+1}`, "ff00aaff"));
-  grbPolygons.forEach((p, i) => kmlContent += polygonToKML(p, `Ground Risk Buffer ${i+1}`, "ff0000ff"));
-  avPolygons.forEach((p, i) => kmlContent += polygonToKML(p, `Adjacent Volume ${i+1}`, "ff000000"));
+    grbPolygons.forEach((grb, i) => {
+        kmlContent += polygonToKML(fgPolygons[i], "Flight Geography", "ff00ff00");
+        kmlContent += polygonToKML(cvPolygons[i], "Contingency Volume", "ff00aaff");
+        kmlContent += polygonToKML(grb, "Ground Risk Buffer", "ff0000ff");
+        kmlContent += polygonToKML(avPolygons[i], "Adjacent Volume", "ff000000");
+    });
 
-  kmlContent += '</Document>\n</kml>';
-  let blob = new Blob([kmlContent], { type: "application/vnd.google-earth.kml+xml" });
-  let link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "operational_volume.kml";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+    kmlContent += '</Document>\n</kml>';
+    let blob = new Blob([kmlContent], { type: "application/vnd.google-earth.kml+xml" });
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "operational_volume.kml";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 </script>
 </body>
