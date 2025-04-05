@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>Safe Drone Academy – Toggle FG/GRB Tools</title>
   <style>
     body {
@@ -12,6 +13,7 @@
       padding: 10px;
       text-align: center;
       border-bottom: 1px solid #ccc;
+      position: relative;
     }
     #tool-frame {
       width: 100%;
@@ -32,31 +34,80 @@
     button:hover {
       background-color: darkred;
     }
+    /* Spinner Style */
+    #spinner {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      gap: 8px;
+      z-index: 1000;
+    }
+    .dot {
+      width: 15px;
+      height: 15px;
+      background-color: red;
+      border-radius: 50%;
+      animation: bounce 0.6s infinite alternate;
+    }
+    .dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-20px); }
+    }
   </style>
+</head>
+<body>
+
+  <!-- Spinner (Bouncing Dots) -->
+  <div id="spinner">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+
+  <!-- Toggle Bar -->
+  <div id="toggle-bar">
+    <button id="toggle-btn" onclick="toggleTool()">Switch to Ground Risk Buffer Input Mode</button>
+  </div>
+
+  <!-- Iframe -->
+  <iframe id="tool-frame" src="fg-tool.html"></iframe>
+
+  <!-- JavaScript -->
   <script>
     let currentTool = 'fg';
 
     function toggleTool() {
       const iframe = document.getElementById('tool-frame');
-      if (currentTool === 'fg') {
-        iframe.src = 'grb-tool.html';
-        currentTool = 'grb';
-        document.getElementById('toggle-btn').textContent = 'Switch to Flight Geography Mode';
-      } else {
-        iframe.src = 'fg-tool.html';
-        currentTool = 'fg';
-        document.getElementById('toggle-btn').textContent = 'Switch to Controlled Ground Area Mode';
-      }
+      const spinner = document.getElementById('spinner');
+
+      spinner.style.display = 'flex'; // Show spinner
+
+      setTimeout(() => {
+        if (currentTool === 'fg') {
+          iframe.src = 'grb-tool.html';
+          currentTool = 'grb';
+          document.getElementById('toggle-btn').textContent = 'Switch to Flight Geography Input Mode';
+        } else {
+          iframe.src = 'fg-tool.html';
+          currentTool = 'fg';
+          document.getElementById('toggle-btn').textContent = 'Switch to Ground Risk Buffer Input Mode';
+        }
+      }, 200);
+
+      iframe.onload = () => {
+        spinner.style.display = 'none'; // Hide spinner when iframe loads
+      };
     }
   </script>
-</head>
-<body>
-
-  <div id="toggle-bar">
-    <button id="toggle-btn" onclick="toggleTool()">Switch to Controlled Ground Area Mode</button>
-  </div>
-
-  <iframe id="tool-frame" src="fg-tool.html"></iframe>
 
 </body>
 </html>
