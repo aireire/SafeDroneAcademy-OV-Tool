@@ -2,8 +2,8 @@
 <html>
 <head>
     <title>Safe Drone Academy - Operational Volume Tool</title>
-   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfhPQUXbEELjFw1HTJAguGUYV85vWv010&callback=initMap&libraries=geometry,drawing,places"></script>
-
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfhPQUXbEELjFw1HTJAguGUYV85vWv010&libraries=geometry,drawing,places"></script>
+   
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <style>
         .gm-svpc,
@@ -16,7 +16,7 @@
         }
     </style>
 </head>
-<body>
+<body onload="initMap()">
     <div style="text-align: center;">
         <img src="https://i.imgur.com/2fiJuTI.png" alt="Safe Drone Academy Logo" style="width: 66px; height: auto;">
     </div>
