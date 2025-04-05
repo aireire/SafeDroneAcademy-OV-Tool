@@ -21,6 +21,15 @@
     button {
       padding: 10px 20px;
       font-size: 16px;
+      cursor: pointer;
+      background-color: #007BFF;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
     }
   </style>
   <script>
@@ -31,11 +40,11 @@
       if (currentTool === 'fg') {
         iframe.src = 'grb-tool.html';
         currentTool = 'grb';
-        document.getElementById('toggle-btn').textContent = 'Switch to FG Tool';
+        document.getElementById('toggle-btn').textContent = 'Switch to Flight Geography Mode';
       } else {
         iframe.src = 'fg-tool.html';
         currentTool = 'fg';
-        document.getElementById('toggle-btn').textContent = 'Switch to GRB Tool';
+        document.getElementById('toggle-btn').textContent = 'Switch to Controlled Ground Area Mode';
       }
     }
   </script>
@@ -43,7 +52,7 @@
 <body>
 
   <div id="toggle-bar">
-    <button id="toggle-btn" onclick="toggleTool()">Switch to GRB Tool</button>
+    <button id="toggle-btn" onclick="toggleTool()">Switch to Controlled Ground Area Mode</button>
   </div>
 
   <iframe id="tool-frame" src="fg-tool.html"></iframe>
