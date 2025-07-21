@@ -41,7 +41,7 @@
 
   <!-- Toggle Bar -->
   <div id="toggle-bar">
-    <button id="toggle-btn" onclick="toggleTool()">Switch to Ground Risk Buffer Input Mode</button>
+    <button id="toggle-btn" onclick="toggleTool()">Switch to Ground Risk Buffer Input Mode - Plot from Outside In</button>
   </div>
 
   <!-- Iframe -->
@@ -62,11 +62,11 @@
         if (currentTool === 'fg') {
           iframe.src = 'grb-tool.html';
           currentTool = 'grb';
-          document.getElementById('toggle-btn').textContent = 'Switch to Flight Geography Input Mode';
+          document.getElementById('toggle-btn').textContent = 'Switch to Flight Geography Input Mode - Plot from Inside Out';
         } else {
           iframe.src = 'fg-tool.html';
           currentTool = 'fg';
-          document.getElementById('toggle-btn').textContent = 'Switch to Ground Risk Buffer Input Mode';
+          document.getElementById('toggle-btn').textContent = 'Switch to Ground Risk Buffer Input Mode - Plot from Outside In';
         }
       }, 400); // Wait half of 0.8s for fade-out before switching
 
@@ -79,4 +79,3 @@
 
 </body>
 </html>
-
