@@ -94,14 +94,15 @@ function initMap() {
   });
 
   drawingManager.setMap(map);
-  google.maps.event.addListener(drawingManager, 'overlaycomplete', function (event) {
-    if (event.type === google.maps.drawing.OverlayType.POLYGON) {
-      const polygon = event.overlay;
-      fgPolygons.push(polygon);
-      generateBuffers(polygon);
-      focusOnPolygon(polygon, 0.8);
-    }
-  });
+google.maps.event.addListener(drawingManager, 'overlaycomplete', function (event) {
+  if (event.type === google.maps.drawing.OverlayType.POLYGON) {
+    const polygon = event.overlay;
+    fgPolygons.push(polygon);
+    attachBufferEvents(polygon); // 🔧 This enables automatic CV/GRB/AV updates
+    generateBuffers(polygon);
+    focusOnPolygon(polygon, 0.8);
+  }
+});
 }
 
 function focusOnPolygon(polygon, zoomFactor = 0.8) {
