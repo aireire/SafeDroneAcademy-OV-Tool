@@ -1,81 +1,1807 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Safe Drone Academy – Toggle FG/GRB Tools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safe Drone Academy — Operational Volume Tool</title>
+  <link rel="icon" type="image/png" href="https://i.imgur.com/2fiJuTI.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* ── Reset ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      font-family: sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #F8FAFC; color: #1E293B;
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
     }
-    #toggle-bar {
-      background: #f0f0f0;
-      padding: 10px;
-      text-align: center;
-      border-bottom: 1px solid #ccc;
-    }
-    #tool-frame {
-      width: 100%;
-      height: 90vh;
-      border: none;
-      opacity: 1;
-      transition: opacity 0.8s ease; /* Slightly longer fade (0.8s) */
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      background-color: red;
-      border: none;
-      border-radius: 5px;
+
+    /* ── Header ────────────────────────────────────────── */
+    .header {
       color: white;
-      transition: background-color 0.3s;
+      height: 56px; padding: 0;
+      display: flex; align-items: stretch; gap: 0;
+      flex-shrink: 0; z-index: 1100;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
     }
-    button:hover {
-      background-color: darkred;
+    .header-brand {
+      background: #3F4451;
+      display: flex; align-items: center; gap: 9px;
+      padding: 0 16px; flex-shrink: 0;
+      text-decoration: none;
     }
+    .header-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+    .header-brand-name { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #fff; white-space: nowrap; }
+    .header-brand-sub { font-size: 9px; font-weight: 600; letter-spacing: 0.05em; color: #B8BCC4; white-space: nowrap; }
+    .header-main {
+      flex: 1; display: flex; align-items: center; gap: 10px;
+      padding: 0 14px;
+      background: linear-gradient(90deg, #3F4451 0%, #B91C2B 22%, #B91C2B 100%);
+    }
+    .header-logo { width: 30px; height: 30px; border-radius: 7px; object-fit: contain; flex-shrink: 0; }
+    .header-title { font-size: 14px; font-weight: 700; white-space: nowrap; margin-right: 2px; }
+    .header-sep { width: 1px; height: 22px; background: rgba(255,255,255,0.2); margin: 0 4px; flex-shrink: 0; }
+    .header-spacer { flex: 1; }
+
+    /* Mode toggle */
+    .mode-toggle { display: flex; background: rgba(255,255,255,0.1); border-radius: 7px; padding: 3px; gap: 2px; }
+    .mode-btn {
+      padding: 4px 13px; border-radius: 5px; border: none; cursor: pointer;
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      color: rgba(255,255,255,0.65); background: transparent;
+      transition: all 0.18s; white-space: nowrap;
+    }
+    .mode-btn.active { background: #3B82F6; color: white; }
+
+    /* Header controls */
+    .h-input {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 7px; padding: 5px 11px; font-size: 12px; font-family: inherit;
+      color: white; outline: none; width: 270px; transition: all 0.18s;
+    }
+    .h-input::placeholder { color: rgba(255,255,255,0.45); }
+    .h-input:focus { background: rgba(255,255,255,0.17); border-color: rgba(255,255,255,0.38); }
+    .h-btn {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+      color: white; border-radius: 7px; padding: 5px 12px;
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: all 0.18s; white-space: nowrap;
+    }
+    .h-btn:hover { background: rgba(255,255,255,0.2); }
+    .h-btn.active { background: rgba(59,130,246,0.55); border-color: rgba(59,130,246,0.7); }
+    input[type=file] { display: none; }
+
+    /* ── Layout ────────────────────────────────────────── */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Left panel ────────────────────────────────────── */
+    .left-panel {
+      width: 268px; background: white;
+      border-right: 1px solid #E2E8F0;
+      display: flex; flex-direction: column;
+      overflow-y: auto; flex-shrink: 0; z-index: 600;
+    }
+    .ps { padding: 13px 15px; border-bottom: 1px solid #F1F5F9; }
+    .ps:last-child { border-bottom: none; }
+    .ps-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #94A3B8; margin-bottom: 9px;
+    }
+
+    /* ── Form elements ─────────────────────────────────── */
+    .lbl { display: block; font-size: 11px; font-weight: 600; color: #64748B; margin-bottom: 4px; }
+    .inp {
+      width: 100%; border: 1px solid #CBD5E1; border-radius: 7px;
+      padding: 7px 10px; font-size: 12px; font-family: inherit;
+      color: #1E293B; background: white; outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .inp:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    select.inp { cursor: pointer; }
+    .sl-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+    .sl-row input[type=range] { flex: 1; accent-color: #3B82F6; cursor: pointer; }
+    .sl-val { font-size: 11px; font-weight: 700; color: #3B82F6; min-width: 46px; text-align: right; }
+    .mb-2 { margin-bottom: 8px; } .mb-3 { margin-bottom: 12px; }
+    .mt-2 { margin-top: 8px; }   .mt-3 { margin-top: 12px; }
+
+    /* ── Buttons ───────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 5px; padding: 7px 13px; border-radius: 7px; border: none;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      font-family: inherit; transition: all 0.15s;
+    }
+    .btn-primary   { background: #3B82F6; color: white; }
+    .btn-primary:hover { background: #2563EB; }
+    .btn-secondary { background: white; color: #475569; border: 1px solid #CBD5E1; }
+    .btn-secondary:hover { background: #F8FAFC; }
+    .btn-danger    { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+    .btn-danger:hover { background: #FEE2E2; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    .btn-full { width: 100%; }
+    .flex-col { display: flex; flex-direction: column; }
+    .gap-2 { gap: 8px; }
+
+    /* Segment toggle grid */
+    .tog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .tog-btn {
+      padding: 6px 8px; border-radius: 7px; border: 2px solid;
+      cursor: pointer; font-size: 11px; font-weight: 700;
+      font-family: inherit; text-align: center; transition: all 0.15s;
+    }
+    .tog-fg  { border-color: #22c55e; color: #16a34a; background: #f0fdf4; }
+    .tog-fg.off,  .tog-fg:hover  { background: #22c55e; color: white; }
+    .tog-cv  { border-color: #f97316; color: #ea580c; background: #fff7ed; }
+    .tog-cv.off,  .tog-cv:hover  { background: #f97316; color: white; }
+    .tog-grb { border-color: #ef4444; color: #dc2626; background: #fef2f2; }
+    .tog-grb.off, .tog-grb:hover { background: #ef4444; color: white; }
+    .tog-av  { border-color: #64748b; color: #475569; background: #f8fafc; }
+    .tog-av.off,  .tog-av:hover  { background: #64748b; color: white; }
+
+    /* Drawing type toggle */
+    .dt-tog { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .dt-btn {
+      padding: 7px 8px; border-radius: 7px; border: 2px solid #3B82F6;
+      cursor: pointer; font-size: 11px; font-weight: 700;
+      font-family: inherit; text-align: center;
+      color: #1D4ED8; background: #EFF6FF; transition: all 0.15s;
+    }
+    .dt-btn.active, .dt-btn:hover { background: #3B82F6; color: white; }
+
+    /* Legend */
+    .legend { display: flex; flex-direction: column; gap: 5px; }
+    .leg-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #475569; }
+    .leg-sw { width: 22px; height: 4px; border-radius: 2px; flex-shrink: 0; }
+    .leg-sw-dash { width: 22px; height: 2px; border-top: 2px dashed; flex-shrink: 0; }
+
+    /* Alerts */
+    .alert { padding: 8px 10px; border-radius: 7px; font-size: 11px; display: flex; align-items: flex-start; gap: 7px; line-height: 1.45; }
+    .alert-info    { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+    .alert-warning { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+    .alert-success { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+    .info-text { font-size: 11px; color: #94A3B8; line-height: 1.5; }
+
+    /* ── Map ───────────────────────────────────────────── */
+    .map-wrap { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    /* Floating stats card */
+    .stats-card {
+      position: absolute; bottom: 28px; left: 12px; z-index: 900;
+      background: white; border: 1px solid #E2E8F0; border-radius: 10px;
+      padding: 10px 13px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      min-width: 160px; display: none;
+    }
+    .stats-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94A3B8; margin-bottom: 7px; }
+    .drow { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 11px; border-bottom: 1px solid #F8FAFC; }
+    .drow:last-child { border-bottom: none; }
+    .drow .k { color: #94A3B8; } .drow .v { font-weight: 700; color: #1E293B; }
+
+    /* ── Distance labels on map ────────────────────────── */
+    .dist-label {
+      background: rgba(30,58,95,0.88); color: white;
+      font-size: 11px; font-weight: 700; font-family: 'Inter', sans-serif;
+      padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35); pointer-events: none;
+    }
+    .wpt-label {
+      background: #3B82F6; color: white;
+      font-size: 10px; font-weight: 700; font-family: 'Inter', sans-serif;
+      padding: 2px 5px; border-radius: 3px; white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3); pointer-events: none;
+    }
+    .total-label {
+      background: #22c55e; color: white;
+      font-size: 11px; font-weight: 700; font-family: 'Inter', sans-serif;
+      padding: 3px 9px; border-radius: 5px; white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3); pointer-events: none;
+    }
+
+    /* Hide the floating cursor-following tooltip entirely */
+    .leaflet-draw-tooltip { display: none !important; }
+
+    /* Static edit hint panel shown below Save/Cancel */
+    #edit-hint {
+      background: rgba(15,23,42,0.82);
+      color: #f1f5f9;
+      font-size: 11px;
+      line-height: 1.75;
+      padding: 6px 10px;
+      border-radius: 0 0 5px 5px;
+      white-space: nowrap;
+      pointer-events: none;
+      margin-top: 1px;
+    }
+    #edit-hint li { list-style: none; padding: 0; margin: 0; }
+    #edit-hint li::before { content: '• '; color: #94a3b8; }
+
+    /* Vertex action tooltips */
+    .vertex-tip {
+      font-size: 11px !important;
+      white-space: nowrap !important;
+      padding: 3px 8px !important;
+      background: rgba(15,23,42,0.85) !important;
+      color: #f8fafc !important;
+      border: none !important;
+      border-radius: 4px !important;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+    }
+    .vertex-tip::before { display: none !important; }
+
+    /* Leaflet.draw vertex handles — override squares with circles */
+    .leaflet-editing-icon,
+    .leaflet-touch .leaflet-editing-icon {
+      border-radius: 50% !important;
+    }
+
+    /* Route summary table */
+    .route-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .route-table th { background: #F1F5F9; padding: 5px 8px; text-align: left; font-weight: 600; color: #64748B; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .route-table td { padding: 5px 8px; border-top: 1px solid #F8FAFC; color: #1E293B; }
+    .route-table tr:last-child td { font-weight: 700; background: #F8FAFC; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #F8FAFC; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+    /* Leaflet draw toolbar z-fix */
+    .leaflet-draw { z-index: 800 !important; }
+
+    /* ── Marker tray Leaflet control ───────────────────────── */
+    .mkr-tray-ctrl { background: white; }
+    .mkr-tray-toggle {
+      width: 30px; height: 30px;
+      display: flex !important; align-items: center; justify-content: center;
+      font-size: 15px; text-decoration: none; color: #333;
+      cursor: pointer; user-select: none;
+    }
+    .mkr-tray-toggle.mkr-tray-open { background: #EFF6FF; }
+    .mkr-tray {
+      display: none; flex-direction: column; gap: 3px;
+      padding: 4px; border-top: 1px solid #ccc;
+    }
+    .mkr-tray-btn {
+      width: 34px; height: 34px;
+      display: flex !important; align-items: center; justify-content: center;
+      border-radius: 4px; text-decoration: none; cursor: grab;
+      transition: background 0.12s;
+    }
+    .mkr-tray-btn:hover { background: #F1F5F9; }
+    .mkr-tray-btn:active { cursor: grabbing; }
+    .marker-popup .leaflet-popup-content-wrapper { border-radius: 10px; }
+    .marker-popup .leaflet-popup-content { margin: 12px 14px; }
   </style>
 </head>
 <body>
 
-  <!-- Toggle Bar -->
-  <div id="toggle-bar">
-    <button id="toggle-btn" onclick="toggleTool()">Switch to Ground Risk Buffer Input Mode - Plot from Outside In</button>
+<!-- ══ HEADER ════════════════════════════════════════════════ -->
+<header class="header">
+  <a href="https://safedrone.ie" target="_blank" rel="noreferrer" class="header-brand">
+    <img src="https://i.imgur.com/2fiJuTI.png" alt="Safe Drone Academy" class="header-logo">
+    <span class="header-brand-text">
+      <span class="header-brand-name">SAFE DRONE ACADEMY</span>
+      <span class="header-brand-sub">OPERATOR TOOLS</span>
+    </span>
+  </a>
+  <div class="header-main">
+    <span class="header-title">Operational Volume Tool</span>
+    <div id="header-mode-toggle" style="display:flex;align-items:center;gap:8px;">
+      <div class="header-sep"></div>
+      <!-- Operational mode -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="btn-mode-fg"  onclick="setMode('fg')">Draw Flight Geography</button>
+        <button class="mode-btn"        id="btn-mode-grb" onclick="setMode('grb')">Draw Ground Risk Buffer</button>
+      </div>
+    </div>
+
+    <div class="header-spacer"></div>
+
+    <!-- Search -->
+    <input class="h-input" id="search-input" placeholder="Search Location / Eircode / Lat,Long"
+           onkeydown="if(event.key==='Enter') searchLocation()">
+    <button class="h-btn" onclick="searchLocation()">Search</button>
+    <div class="header-sep"></div>
+
+    <!-- Import / Export -->
+    <button class="h-btn" onclick="document.getElementById('kml-input').click()">↑ Import KML</button>
+    <input type="file" id="kml-input" accept=".kml" onchange="importKML(event)">
+    <button class="h-btn" onclick="exportKML()">↓ Export KML</button>
+    <div class="header-sep"></div>
+
+    <!-- Save to Plan — only shown when embedded in the logbook checklist -->
+    <div class="header-sep" id="save-plan-sep" style="display:none;"></div>
+    <button class="h-btn" id="save-plan-btn" onclick="saveToParent()" style="display:none;background:rgba(34,197,94,0.3);border-color:rgba(34,197,94,0.6);" disabled>↑ Save to Plan</button>
+  </div>
+</header>
+
+<!-- ══ LAYOUT ════════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- ── Left panel ──────────────────────────────────────── -->
+  <aside class="left-panel">
+
+    <!-- App Category Toggle -->
+    <div class="ps" style="padding-bottom:12px;">
+      <div class="ps-title">Operational Category</div>
+      <div class="dt-tog">
+        <button class="dt-btn" id="appmode-open"     onclick="setAppMode('open')">Open</button>
+        <button class="dt-btn active" id="appmode-specific" onclick="setAppMode('specific')">Specific</button>
+      </div>
+    </div>
+
+    <!-- Mode description -->
+    <div class="ps" id="section-mode-alert">
+      <div class="alert alert-info" id="mode-alert">
+        <span>✦</span>
+        <span id="mode-alert-text">Draw your <strong>Flight Geography</strong> polygon. CV, GRB and AV generate outward automatically.</span>
+      </div>
+    </div>
+
+    <!-- Drawing type -->
+    <div class="ps">
+      <div class="ps-title">Drawing Type</div>
+      <div class="dt-tog">
+        <button class="dt-btn active" id="dt-polygon"  onclick="setDrawType('polygon')">Polygon</button>
+        <button class="dt-btn"        id="dt-corridor" onclick="setDrawType('corridor')">Corridor</button>
+      </div>
+
+      <!-- Corridor controls (hidden by default) -->
+      <div id="corridor-ctrl" style="display:none; margin-top:10px;">
+        <div class="lbl">Corridor Width (total)</div>
+        <div class="sl-row">
+          <input type="range" min="10" max="2000" value="50" id="cw-slider" oninput="syncCW(this.value)">
+          <span class="sl-val" id="cw-disp">50 m</span>
+        </div>
+        <input type="number" class="inp" id="cw-num" min="10" max="2000" value="50" oninput="syncCW(this.value)">
+        <p class="info-text mt-2">This is the full width of the FG or GRB corridor. Segment distances are shown on the map between each waypoint.</p>
+      </div>
+
+      <!-- Live drawing distance -->
+      <div id="live-dist-wrap" style="display:none; margin-top:10px;">
+        <div class="alert alert-info">
+          <span>📏</span>
+          <div>
+            <div id="live-dist-seg" style="font-weight:700;">Click to place first waypoint</div>
+            <div id="live-dist-total" style="font-size:10px; margin-top:2px; opacity:0.75;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buffer widths -->
+    <div class="ps" id="section-buffer-widths">
+      <div class="ps-title">Buffer Widths</div>
+
+      <div class="lbl" id="cv-lbl">Contingency Volume (CV)</div>
+      <div class="sl-row">
+        <input type="range" min="0" max="200" value="20" id="cv-slider" oninput="syncBuf('cv', this.value)">
+        <span class="sl-val" id="cv-disp">20 m</span>
+      </div>
+      <input type="number" class="inp mb-3" id="cv-num" min="0" max="200" value="20" oninput="syncBuf('cv', this.value)">
+
+      <div class="lbl" id="grb-lbl">Ground Risk Buffer (GRB)</div>
+      <div class="sl-row">
+        <input type="range" min="0" max="1500" value="100" id="grb-slider" oninput="syncBuf('grb', this.value)">
+        <span class="sl-val" id="grb-disp">100 m</span>
+      </div>
+      <input type="number" class="inp mb-3" id="grb-num" min="0" max="1500" value="100" oninput="syncBuf('grb', this.value)">
+
+      <div class="lbl">Adjacent Volume (AV) — from CV</div>
+      <div class="sl-row">
+        <input type="range" min="200" max="5000" value="500" id="av-slider" oninput="syncBuf('av', this.value)">
+        <span class="sl-val" id="av-disp">500 m</span>
+      </div>
+      <input type="number" class="inp" id="av-num" min="200" max="5000" value="500" oninput="syncBuf('av', this.value)">
+    </div>
+
+    <!-- Layer visibility -->
+    <div class="ps" id="section-layer-vis">
+      <div class="ps-title">Layer Visibility</div>
+      <div class="tog-grid">
+        <button class="tog-btn tog-fg"  id="tog-fg"  onclick="toggleLayer('fg')">FG</button>
+        <button class="tog-btn tog-cv"  id="tog-cv"  onclick="toggleLayer('cv')">CV</button>
+        <button class="tog-btn tog-grb" id="tog-grb" onclick="toggleLayer('grb')">GRB</button>
+        <button class="tog-btn tog-av"  id="tog-av"  onclick="toggleLayer('av')">AV</button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="ps" id="section-legend">
+      <div class="ps-title">Legend</div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-sw" style="background:#22c55e"></div>Flight Geography (FG)</div>
+        <div class="leg-item"><div class="leg-sw" style="background:#f97316"></div>Contingency Volume (CV)</div>
+        <div class="leg-item"><div class="leg-sw" style="background:#ef4444"></div>Ground Risk Buffer (GRB)</div>
+        <div class="leg-item"><div class="leg-sw" style="background:#64748b"></div>Adjacent Volume (AV)</div>
+        <div class="leg-item"><div class="leg-sw-dash" style="border-color:#3B82F6"></div>Corridor centreline</div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="ps" style="margin-top:auto;">
+      <div class="ps-title">Actions</div>
+      <div class="flex-col gap-2">
+        <button class="btn btn-secondary btn-full" onclick="exportKML()">↓ Export KML</button>
+        <button class="btn btn-danger btn-full"    onclick="clearAll()">✕ Clear All</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="ps" style="text-align:center; border-bottom:none; margin-top:auto;">
+      <img src="https://i.imgur.com/2fiJuTI.png" style="width:28px;height:28px;border-radius:6px;margin-bottom:6px;" alt="Safe Drone Academy">
+      <p class="info-text" style="font-weight:600;color:#475569;margin-bottom:2px;">Safe Drone Academy</p>
+      <p class="info-text">
+        Operational planning tools for<br>UAS professionals in Ireland.<br>
+        <a href="https://safedrone.ie" target="_blank" style="color:#B91C2B;text-decoration:none;font-weight:600;">safedrone.ie</a>
+      </p>
+    </div>
+  </aside>
+
+  <!-- ── Map ─────────────────────────────────────────────── -->
+  <div class="map-wrap">
+    <div id="map"></div>
+
+    <!-- Floating area / route stats -->
+    <div class="stats-card" id="stats-card">
+      <div class="stats-title" id="stats-title">Zone Areas</div>
+      <div id="stats-body">
+        <div class="drow"><span class="k">FG</span>           <span class="v" id="s-fg">—</span></div>
+        <div class="drow"><span class="k">OV (FG+CV)</span>   <span class="v" id="s-cv">—</span></div>
+        <div class="drow"><span class="k">OV+GRB</span>       <span class="v" id="s-grb">—</span></div>
+        <div class="drow"><span class="k">FG+CV+GRB+AV</span><span class="v" id="s-av">—</span></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Iframe -->
-  <iframe id="tool-frame" src="fg-tool.html"></iframe>
+</div><!-- /layout -->
 
-  <!-- JavaScript -->
-  <script>
-    let currentTool = 'fg';
+<!-- ══ SCRIPTS ════════════════════════════════════════════════ -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<script>
+'use strict';
 
-    function toggleTool() {
-      const iframe = document.getElementById('tool-frame');
+// ══════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ══════════════════════════════════════════════════════════════
+const CFG = {
+  center: [53.3498, -6.2603],
+  zoom: 10
+};
 
-      // Fade out
-      iframe.style.opacity = '0';
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let map, drawControl, drawnItems;
+let appMode  = 'specific';  // 'open' | 'specific'
+let mode     = 'fg';        // 'fg' | 'grb'
+let drawType = 'polygon';   // 'polygon' | 'corridor'
+let cvW = 20, grbW = 100, avW = 500;
+let isReadOnly = false;
+let corridorWidth = 50;     // full corridor width in metres
 
-      setTimeout(() => {
-        // Switch src after fade out
-        if (currentTool === 'fg') {
-          iframe.src = 'grb-tool.html';
-          currentTool = 'grb';
-          document.getElementById('toggle-btn').textContent = 'Switch to Flight Geography Input Mode - Plot from Inside Out';
-        } else {
-          iframe.src = 'fg-tool.html';
-          currentTool = 'fg';
-          document.getElementById('toggle-btn').textContent = 'Switch to Ground Risk Buffer Input Mode - Plot from Outside In';
-        }
-      }, 400); // Wait half of 0.8s for fade-out before switching
+let primaries        = [];  // drawn Leaflet layers (polyline or polygon)
+let bufs             = [];  // [{fg,cv,grb,av}] Leaflet polygon layers
+let corridorIndices  = new Set(); // indices of primaries that are corridors
+let distLabels       = [];  // marker arrays per corridor index
+let vis = { fg: true, cv: true, grb: true, av: true };
 
-      // Fade in after iframe loads
-      iframe.onload = () => {
-        iframe.style.opacity = '1';
-      };
+let lastGrbTurf   = null;
+
+// Live drawing tracking
+let _drawingLls = [];
+
+// Track whether Leaflet.draw is actively drawing or editing
+let _drawActive = false, _editActive = false;
+
+// Reference to the currently active draw handler instance
+let _activeDrawHandler = null;
+
+// ══════════════════════════════════════════════════════════════
+// MAP INIT
+// ══════════════════════════════════════════════════════════════
+function initMap() {
+  map = L.map('map', { zoomControl: true }).setView(CFG.center, CFG.zoom);
+
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Tiles © Esri — Maxar, Earthstar Geographics', maxZoom: 19 }
+  ).addTo(map);
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom: 19, opacity: 0.85 }
+  ).addTo(map);
+
+  // Draw-order panes
+  ['av','grb','cv','fg'].forEach((name, i) => {
+    const p = map.createPane(name + 'Pane');
+    p.style.zIndex = 410 + i * 5;
+  });
+
+  drawnItems = new L.FeatureGroup().addTo(map);
+  drawControl = makeDrawControl();
+  map.addControl(drawControl);
+
+  map.on(L.Draw.Event.CREATED, onCreated);
+  map.on(L.Draw.Event.EDITED,  onEdited);
+  map.on(L.Draw.Event.DELETED, onDeleted);
+
+  // Live distance tracking during corridor drawing
+  map.on('draw:drawvertex', onDrawVertex);
+  map.on('draw:drawstart',  () => { _drawingLls = []; _drawActive = true; });
+  map.on('draw:drawstop',   () => { _drawActive = false; });
+  map.on('draw:editstart', () => {
+    _editActive = true;
+    stopDrawHandler();
+    // Inject hint panel below Save/Cancel — wait a tick for toolbar to render
+    setTimeout(() => {
+      const actions = document.querySelector('.leaflet-draw-actions');
+      if (actions && !document.getElementById('edit-hint')) {
+        const hint = document.createElement('ul');
+        hint.id = 'edit-hint';
+        hint.innerHTML =
+          '<li>Drag a solid point to <b>move</b> it</li>' +
+          '<li>Click a faded point to <b>add</b> it</li>' +
+          '<li>Click a solid point to <b>remove</b> it</li>';
+        actions.parentNode.insertBefore(hint, actions.nextSibling);
+      }
+    }, 80);
+  });
+  map.on('draw:editstop', () => {
+    _editActive = false;
+    const hint = document.getElementById('edit-hint');
+    if (hint) hint.remove();
+  });
+  map.on('draw:deletestart',() => { _editActive = true;  stopDrawHandler(); });
+  map.on('draw:deletestop', () => { _editActive = false; });
+
+  patchLeafletDrawRightClick();
+
+  // Auto-start drawing as soon as map loads
+  startDrawHandler();
+  updateSavePlanBtn();
+
+  // Rescale markers when zoom changes
+  map.on('zoomend', _updateAllMarkerSizes);
+
+  // Marker tray control + drag-and-drop onto map
+  setupMarkerTray();
+  setupMarkerDrop();
+}
+
+// ══════════════════════════════════════════════════════════════
+// DRAW CONTROL
+// ══════════════════════════════════════════════════════════════
+function makeDrawControl() {
+  const color = mode === 'fg' ? '#22c55e' : '#ef4444';
+  const drawOpts = { polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false };
+
+  if (drawType === 'polygon') {
+    drawOpts.polygon = {
+      shapeOptions: { color, fillColor: color, fillOpacity: 0.25, weight: 2 },
+      showArea: true
+    };
+  } else {
+    // Corridor — use polyline tool
+    drawOpts.polyline = {
+      shapeOptions: { color: '#3B82F6', weight: 2.5, dashArray: '6 4', opacity: 0.9 },
+      showLength: true,
+      metric: true
+    };
+    drawOpts.polygon = false;
+  }
+
+  return new L.Control.Draw({
+    draw: drawOpts,
+    edit: { featureGroup: drawnItems, remove: true }
+  });
+}
+
+function refreshDrawControl() {
+  map.removeControl(drawControl);
+  drawControl = makeDrawControl();
+  map.addControl(drawControl);
+}
+
+// ══════════════════════════════════════════════════════════════
+// DRAW EVENTS
+// ══════════════════════════════════════════════════════════════
+function onCreated(e) {
+  const layer = e.layer;
+  drawnItems.addLayer(layer);
+  const idx = primaries.length;
+  primaries.push(layer);
+  bufs.push({ fg: null, cv: null, grb: null, av: null });
+  distLabels.push([]);
+
+  if (drawType === 'corridor') {
+    corridorIndices.add(idx);
+    addDistLabels(layer, idx);
+    addCorridorClickInsert(layer);
+  }
+
+  makeLayerDraggable(layer);
+  buildBuffers(idx);
+  updateStats();
+  updateSavePlanBtn();
+  stopDrawHandler(); // release draw mode so edit toolbar works normally
+
+  layer.on('edit', () => {
+    const i = primaries.indexOf(layer);
+    if (corridorIndices.has(i)) {
+      removeDistLabels(i);
+      addDistLabels(layer, i);
     }
-  </script>
+    buildBuffers(i);
+    updateStats();
+  });
+}
+
+function onEdited(e) {
+  e.layers.eachLayer(layer => {
+    const i = primaries.indexOf(layer);
+    if (i < 0) return;
+    if (corridorIndices.has(i)) {
+      removeDistLabels(i);
+      addDistLabels(layer, i);
+    }
+    buildBuffers(i);
+  });
+  updateStats();
+}
+
+// ── Right-click a vertex to remove it while in edit mode ─────
+// Patches L.Edit.Poly directly so binding happens inside Leaflet.draw's
+// own marker setup — more reliable than hooking draw:editstart events.
+function patchLeafletDrawRightClick() {
+  if (!L.Edit || !L.Edit.Poly) return;
+
+  // Update the global edit-mode tooltip shown on the map
+  try {
+    L.drawLocal.edit.handlers.edit.tooltip = {
+      text: '• Drag a solid point to <b>move</b> it<br>• Click a faded point to <b>add</b> it<br>• Click a solid point to <b>remove</b> it',
+      subtext: 'Save to apply · Cancel to discard.'
+    };
+  } catch(e) {}
+
+  function bindMarkerTooltipsAndRightClick(editInst) {
+    if (!editInst._markerGroup || !editInst._markers) return;
+
+    // Build a Set of the main vertex markers so we can tell them apart from midpoints
+    const raw = editInst._markers;
+    const mainSet = new Set(
+      [].concat(...raw.map(r => Array.isArray(r) ? r : [r]))
+    );
+
+    editInst._markerGroup.eachLayer(marker => {
+      if (!marker || !marker.getLatLng) return;
+
+      if (mainSet.has(marker)) {
+        // ── Main vertex marker ──
+        if (marker._rightClickBound) return;
+        marker._rightClickBound = true;
+
+        marker.unbindTooltip();
+        marker.bindTooltip('Drag to move · Click to remove', {
+          direction: 'top', opacity: 0.92, offset: [0, -8],
+          className: 'vertex-tip'
+        });
+        marker.on('contextmenu', e => {
+          L.DomEvent.stop(e.originalEvent || e);
+          deleteVertex(editInst._poly, marker);
+        });
+      } else {
+        // ── Midpoint / ghost marker (click to add new vertex) ──
+        if (marker._tooltipBound) return;
+        marker._tooltipBound = true;
+
+        marker.unbindTooltip();
+        marker.bindTooltip('Click or drag to add a point here', {
+          direction: 'top', opacity: 0.92, offset: [0, -8],
+          className: 'vertex-tip'
+        });
+      }
+    });
+  }
+
+  const _origAdd    = L.Edit.Poly.prototype.addHooks;
+  const _origUpdate = L.Edit.Poly.prototype.updateMarkers;
+
+  L.Edit.Poly.prototype.addHooks = function() {
+    _origAdd.call(this);
+    setTimeout(() => bindMarkerTooltipsAndRightClick(this), 80);
+  };
+
+  L.Edit.Poly.prototype.updateMarkers = function() {
+    _origUpdate.call(this);
+    setTimeout(() => bindMarkerTooltipsAndRightClick(this), 80);
+  };
+}
+
+function deleteVertex(layer, marker) {
+  const layerIdx   = primaries.indexOf(layer);
+  const isCorridor = corridorIndices.has(layerIdx);
+  const minVerts   = isCorridor ? 2 : 3;
+
+  // Normalise: polygon → [[ring]], polyline → [lls]
+  const raw      = layer.getLatLngs();
+  const isNested = Array.isArray(raw[0]) && !raw[0].lat;
+  const ring     = isNested ? raw[0] : raw;
+
+  if (ring.length <= minVerts) return; // already at minimum — do nothing
+
+  const tgt = marker.getLatLng();
+  const idx = ring.findIndex(ll =>
+    Math.abs(ll.lat - tgt.lat) < 1e-9 && Math.abs(ll.lng - tgt.lng) < 1e-9
+  );
+  if (idx === -1) return;
+
+  ring.splice(idx, 1);
+  layer.setLatLngs(isNested ? [ring] : ring);
+
+  // updateMarkers will re-draw handles and re-bind right-click via the patch above
+  if (layer.editing.updateMarkers) layer.editing.updateMarkers();
+
+  // Rebuild buffers and distances
+  if (layerIdx !== -1) {
+    if (isCorridor) { removeDistLabels(layerIdx); addDistLabels(layer, layerIdx); }
+    buildBuffers(layerIdx);
+    updateStats();
+  }
+}
+
+function onDeleted(e) {
+  e.layers.eachLayer(layer => {
+    const i = primaries.indexOf(layer);
+    if (i < 0) return;
+    clearBufsAt(i);
+    removeDistLabels(i);
+    primaries.splice(i, 1);
+    bufs.splice(i, 1);
+    distLabels.splice(i, 1);
+    corridorIndices.delete(i);
+    // Re-index corridorIndices
+    const newSet = new Set();
+    corridorIndices.forEach(idx => { if (idx > i) newSet.add(idx - 1); else if (idx < i) newSet.add(idx); });
+    corridorIndices.clear();
+    newSet.forEach(v => corridorIndices.add(v));
+  });
+  updateStats();
+  updateSavePlanBtn();
+}
+
+// Live vertex tracking for distance display
+function onDrawVertex(e) {
+  if (drawType !== 'corridor') return;
+  try {
+    let lls = [];
+    e.layers.eachLayer(l => { if (l.getLatLngs) lls = l.getLatLngs(); });
+    if (!lls.length) return;
+    const flat = Array.isArray(lls[0]) ? lls[0] : lls;
+    if (flat.length === 0) return;
+
+    _drawingLls = flat;
+    let totalM = 0;
+    const segs = [];
+    for (let i = 0; i < flat.length - 1; i++) {
+      const d = map.distance(flat[i], flat[i+1]);
+      segs.push(d);
+      totalM += d;
+    }
+
+    const lastSeg = segs.length ? segs[segs.length - 1] : 0;
+    document.getElementById('live-dist-seg').textContent =
+      segs.length ? `Seg ${segs.length}: ${fmtDist(lastSeg)}` : 'First waypoint placed';
+    document.getElementById('live-dist-total').textContent =
+      totalM > 0 ? `Total route: ${fmtDist(totalM)}  ·  ${flat.length} waypoints` : '';
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════════
+// DISTANCE LABELS
+// ══════════════════════════════════════════════════════════════
+function fmtDist(m) {
+  return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(2) + ' km';
+}
+
+function addDistLabels(polylineLayer, idx) {
+  const raw = polylineLayer.getLatLngs();
+  const lls = Array.isArray(raw[0]) ? raw[0] : raw; // handle nested
+  if (lls.length < 1) return;
+
+  const markers = [];
+  let totalM = 0;
+
+  // Waypoint labels
+  lls.forEach((ll, i) => {
+    const m = L.marker([ll.lat, ll.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="wpt-label">WP${i + 1}</div>`,
+        iconAnchor: [15, -4]
+      }),
+      interactive: false, zIndexOffset: 500
+    }).addTo(map);
+    markers.push(m);
+  });
+
+  // Segment distance labels
+  for (let i = 0; i < lls.length - 1; i++) {
+    const d = map.distance(lls[i], lls[i+1]);
+    totalM += d;
+    const midLat = (lls[i].lat + lls[i+1].lat) / 2;
+    const midLng = (lls[i].lng + lls[i+1].lng) / 2;
+    const m = L.marker([midLat, midLng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="dist-label">${fmtDist(d)}</div>`,
+        iconAnchor: [28, 10]
+      }),
+      interactive: false, zIndexOffset: 400
+    }).addTo(map);
+    markers.push(m);
+  }
+
+  // Total distance label at last waypoint
+  if (lls.length > 1) {
+    const last = lls[lls.length - 1];
+    const m = L.marker([last.lat, last.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="total-label">Total: ${fmtDist(totalM)}</div>`,
+        iconAnchor: [-6, 10]
+      }),
+      interactive: false, zIndexOffset: 600
+    }).addTo(map);
+    markers.push(m);
+  }
+
+  distLabels[idx] = markers;
+}
+
+function removeDistLabels(idx) {
+  (distLabels[idx] || []).forEach(m => map.removeLayer(m));
+  distLabels[idx] = [];
+}
+
+// ── Click-to-insert a new vertex on a corridor line ──────────
+// ── Whole-shape drag ─────────────────────────────────────────
+function makeLayerDraggable(layer) {
+  let dragging = false;
+  let startPx, startLls;
+
+  layer.on('mouseover', () => {
+    if (!_drawActive && !_editActive && layer._path)
+      layer._path.style.cursor = 'grab';
+  });
+  layer.on('mouseout', () => {
+    if (layer._path) layer._path.style.cursor = '';
+  });
+
+  layer.on('mousedown', function(e) {
+    if (_drawActive || _editActive) return;
+
+    // Must stop the NATIVE DOM event — L.DomEvent.stop only affects the
+    // Leaflet synthetic wrapper, leaving the real mousedown free to bubble
+    // up to the map container where Leaflet's pan handler is attached.
+    const domEv = e.originalEvent || e;
+    domEv.stopPropagation();
+    domEv.preventDefault();
+    map.dragging.disable();
+
+    dragging = true;
+    startPx  = map.latLngToContainerPoint(e.latlng);
+
+    const raw  = layer.getLatLngs();
+    const flat = Array.isArray(raw[0]) ? raw[0] : raw;
+    startLls   = flat.map(ll => L.latLng(ll.lat, ll.lng));
+
+    map.dragging.disable();
+    if (layer._path) layer._path.style.cursor = 'grabbing';
+
+    // Use native document events so drag works even outside the map container
+    function onMove(ev) {
+      if (!dragging) return;
+      const rect  = map.getContainer().getBoundingClientRect();
+      const curPx = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
+      const delta = curPx.subtract(startPx);
+      const moved = startLls.map(ll =>
+        map.containerPointToLatLng(map.latLngToContainerPoint(ll).add(delta))
+      );
+      const isNested = Array.isArray(layer.getLatLngs()[0]);
+      layer.setLatLngs(isNested ? [moved] : moved);
+    }
+
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      map.dragging.enable();
+      if (layer._path) layer._path.style.cursor = 'grab';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+
+      const i = primaries.indexOf(layer);
+      if (i < 0) return;
+      if (corridorIndices.has(i)) { removeDistLabels(i); addDistLabels(layer, i); }
+      buildBuffers(i);
+      updateStats();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
+
+function addCorridorClickInsert(layer) {
+  layer.on('click', function(e) {
+    // Only act when Leaflet.draw is idle (not drawing or editing)
+    if (_drawActive || _editActive) return;
+    L.DomEvent.stopPropagation(e);
+
+    const lls = layer.getLatLngs();
+    if (lls.length < 2) return;
+
+    // Find which segment is closest to the click point
+    const clickPt = turf.point([e.latlng.lng, e.latlng.lat]);
+    let bestDist = Infinity, bestSeg = 0;
+    for (let i = 0; i < lls.length - 1; i++) {
+      const seg = turf.lineString([
+        [lls[i].lng, lls[i].lat],
+        [lls[i + 1].lng, lls[i + 1].lat]
+      ]);
+      const dist = turf.nearestPointOnLine(seg, clickPt).properties.dist;
+      if (dist < bestDist) { bestDist = dist; bestSeg = i; }
+    }
+
+    // Insert the new latlng after bestSeg
+    lls.splice(bestSeg + 1, 0, e.latlng);
+    layer.setLatLngs(lls);
+
+    const i = primaries.indexOf(layer);
+    if (i < 0) return;
+    removeDistLabels(i);
+    addDistLabels(layer, i);
+    buildBuffers(i);
+    updateStats();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// BUFFER GENERATION
+// ══════════════════════════════════════════════════════════════
+function llsToTurfPolygon(layer) {
+  const raw = layer.getLatLngs();
+  const lls = Array.isArray(raw[0]) ? raw[0] : raw;
+  const coords = lls.map(ll => [ll.lng, ll.lat]);
+  coords.push(coords[0]);
+  return turf.polygon([coords]);
+}
+
+function llsToTurfLine(layer) {
+  const raw = layer.getLatLngs();
+  const lls = Array.isArray(raw[0]) ? raw[0] : raw;
+  return turf.lineString(lls.map(ll => [ll.lng, ll.lat]));
+}
+
+function turfToLeaflet(tp, paneName, color, weight, fillOpacity) {
+  if (!tp || !tp.geometry) return null;
+  const coords = tp.geometry.coordinates[0].map(c => [c[1], c[0]]);
+  return L.polygon(coords, { color, weight, fillColor: color, fillOpacity, pane: paneName });
+}
+
+function safeBuffer(geo, dist) {
+  try {
+    const r = turf.buffer(geo, dist, { units: 'meters' });
+    return r && r.geometry && r.geometry.coordinates.length ? r : null;
+  } catch(e) { return null; }
+}
+
+function buildBuffers(idx) {
+  clearBufsAt(idx);
+  const primary = primaries[idx];
+  if (!primary) return;
+
+  const isCorridor = corridorIndices.has(idx);
+  let geo; // This becomes the FG or GRB polygon
+
+  if (isCorridor) {
+    const line = llsToTurfLine(primary);
+    geo = safeBuffer(line, corridorWidth / 2); // half-width each side = full corridor width
+  } else {
+    geo = llsToTurfPolygon(primary);
+  }
+
+  if (!geo) return;
+
+  // ── Open Category: just the operating area, no buffer zones ──
+  if (appMode === 'open') {
+    lastGrbTurf = geo;
+    const b = bufs[idx];
+    b.fg  = turfToLeaflet(geo, 'fgPane', '#22c55e', 2, 0.28);
+    b.cv  = null; b.grb = null; b.av = null;
+    applyVis();
+    return;
+  }
+
+  let fgT, cvT, grbT, avT;
+
+  if (mode === 'fg') {
+    fgT  = geo;
+    cvT  = safeBuffer(geo,  cvW);
+    grbT = cvT ? safeBuffer(cvT, grbW) : null;
+    avT  = cvT ? safeBuffer(cvT, avW)  : null;
+  } else {
+    grbT = geo;
+    cvT  = safeBuffer(geo, -cvW);
+    fgT  = cvT ? safeBuffer(cvT, -grbW) : null;
+    avT  = cvT ? safeBuffer(cvT,  avW)  : null;
+  }
+
+  lastGrbTurf = grbT;
+
+  const b = bufs[idx];
+  b.fg  = turfToLeaflet(fgT,  'fgPane',  '#22c55e', 2,   0.28);
+  b.cv  = turfToLeaflet(cvT,  'cvPane',  '#f97316', 1.5, 0.15);
+  b.grb = turfToLeaflet(grbT, 'grbPane', '#ef4444', 1.5, 0.12);
+  b.av  = turfToLeaflet(avT,  'avPane',  '#64748b', 1,   0.07);
+
+  applyVis();
+}
+
+function clearBufsAt(idx) {
+  const b = bufs[idx];
+  if (!b) return;
+  ['fg','cv','grb','av'].forEach(k => { if (b[k]) { map.removeLayer(b[k]); b[k] = null; } });
+}
+
+function rebuildAll() {
+  primaries.forEach((_, i) => buildBuffers(i));
+  updateStats();
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODE & DRAW TYPE
+// ══════════════════════════════════════════════════════════════
+function updateDrawLocalStrings() {
+  if (drawType === 'corridor') {
+    L.drawLocal.draw.handlers.polyline.tooltip.start = 'Click to place first waypoint';
+    L.drawLocal.draw.handlers.polyline.tooltip.cont  = 'Click to add next waypoint. Double-click to finish.';
+    L.drawLocal.draw.handlers.polyline.tooltip.end   = 'Click last point to finish corridor.';
+  } else {
+    const label = appMode === 'open' ? 'operating area'
+                : mode === 'fg'     ? 'flight geography'
+                :                     'ground risk buffer';
+    L.drawLocal.draw.handlers.polygon.tooltip.start = `Click to start drawing ${label}`;
+    L.drawLocal.draw.handlers.polygon.tooltip.cont  = `Click to continue drawing ${label}`;
+    L.drawLocal.draw.handlers.polygon.tooltip.end   = `Click first point to close ${label}.`;
+  }
+}
+
+function stopDrawHandler() {
+  if (_activeDrawHandler) {
+    try { _activeDrawHandler.disable(); } catch(e) {}
+    _activeDrawHandler = null;
+  }
+}
+
+function startDrawHandler() {
+  stopDrawHandler(); // always kill any existing handler first
+  updateDrawLocalStrings();
+  if (drawType === 'polygon') {
+    _activeDrawHandler = new L.Draw.Polygon(map, drawControl.options.draw.polygon);
+  } else {
+    _activeDrawHandler = new L.Draw.Polyline(map, drawControl.options.draw.polyline);
+  }
+  _activeDrawHandler.enable();
+}
+
+function setMode(m) {
+  if (primaries.length > 0) {
+    if (!confirm('Switching mode will clear all drawn shapes and buffers. Continue?')) return;
+    clearShapes();
+  }
+  mode = m;
+  document.getElementById('btn-mode-fg').classList.toggle('active', m === 'fg');
+  document.getElementById('btn-mode-grb').classList.toggle('active', m === 'grb');
+  document.getElementById('mode-alert-text').innerHTML = m === 'fg'
+    ? 'Draw your <strong>Flight Geography</strong> polygon or corridor. CV, GRB and AV generate outward.'
+    : 'Draw your <strong>Ground Risk Buffer</strong> polygon or corridor. CV and FG are inset inward; AV extends outward from CV.';
+  // Relabel buffer width sliders to reflect current mode context
+  document.getElementById('cv-lbl').textContent  = m === 'fg'
+    ? 'Contingency Volume (CV)'
+    : 'Ground Risk Buffer (GRB)';
+  document.getElementById('grb-lbl').textContent = m === 'fg'
+    ? 'Ground Risk Buffer (GRB)'
+    : 'Contingency Volume';
+  refreshDrawControl();
+  startDrawHandler();
+}
+
+function setAppMode(m) {
+  if (primaries.length > 0) {
+    if (!confirm('Switching category will clear all drawn shapes. Continue?')) return;
+    clearShapes();
+  }
+  appMode = m;
+  const isOpen = m === 'open';
+
+  // Toggle buttons
+  document.getElementById('appmode-open').classList.toggle('active', isOpen);
+  document.getElementById('appmode-specific').classList.toggle('active', !isOpen);
+
+  // Header: FG/GRB mode toggle
+  document.getElementById('header-mode-toggle').style.display = isOpen ? 'none' : '';
+
+  // Left panel sections
+  document.getElementById('section-mode-alert').style.display  = isOpen ? 'none' : '';
+  document.getElementById('section-buffer-widths').style.display = isOpen ? 'none' : '';
+  document.getElementById('section-layer-vis').style.display   = isOpen ? 'none' : '';
+  document.getElementById('section-legend').style.display      = isOpen ? 'none' : '';
+
+  // Rebuild draw handler so tooltip text & colour reflect new mode
+  refreshDrawControl();
+  startDrawHandler();
+}
+
+function setDrawType(type) {
+  drawType = type;
+  document.getElementById('dt-polygon').classList.toggle('active',  type === 'polygon');
+  document.getElementById('dt-corridor').classList.toggle('active', type === 'corridor');
+  document.getElementById('corridor-ctrl').style.display   = type === 'corridor' ? 'block' : 'none';
+  document.getElementById('live-dist-wrap').style.display  = type === 'corridor' ? 'block' : 'none';
+  refreshDrawControl();
+  startDrawHandler();
+
+  if (type === 'corridor') {
+    document.getElementById('live-dist-seg').textContent   = 'Click to place first waypoint';
+    document.getElementById('live-dist-total').textContent = '';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// SYNC CONTROLS
+// ══════════════════════════════════════════════════════════════
+function syncBuf(type, val) {
+  val = Math.max(0, parseInt(val) || 0);
+  if (type === 'cv')  { cvW  = val; setEls('cv',  val); }
+  if (type === 'grb') { grbW = val; setEls('grb', val); }
+  if (type === 'av')  { avW  = val; setEls('av',  val); }
+  rebuildAll();
+}
+
+function setEls(t, v) {
+  const s = document.getElementById(t+'-slider');
+  const n = document.getElementById(t+'-num');
+  const d = document.getElementById(t+'-disp');
+  if (s) s.value = v; if (n) n.value = v;
+  if (d) d.textContent = v + ' m';
+}
+
+function syncCW(val) {
+  val = Math.max(10, parseInt(val) || 10);
+  corridorWidth = val;
+  document.getElementById('cw-slider').value = val;
+  document.getElementById('cw-num').value    = val;
+  document.getElementById('cw-disp').textContent = val + ' m';
+  rebuildAll();
+}
+
+// ══════════════════════════════════════════════════════════════
+// VISIBILITY
+// ══════════════════════════════════════════════════════════════
+function toggleLayer(type) {
+  vis[type] = !vis[type];
+  document.getElementById('tog-'+type).classList.toggle('off', !vis[type]);
+  applyVis();
+}
+
+function applyVis() {
+  bufs.forEach(b => {
+    ['fg','cv','grb','av'].forEach(k => {
+      if (!b[k]) return;
+      if (vis[k]) { if (!map.hasLayer(b[k])) b[k].addTo(map); }
+      else        { if (map.hasLayer(b[k]))  map.removeLayer(b[k]); }
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════════════════════════
+function updateStats() {
+  if (!primaries.length) { document.getElementById('stats-card').style.display = 'none'; return; }
+  document.getElementById('stats-card').style.display = 'block';
+
+  const idx        = primaries.length - 1;
+  const b          = bufs[idx];
+  const isCorridor = corridorIndices.has(idx);
+
+  if (appMode === 'open') {
+    document.getElementById('stats-title').textContent = 'Operating Area';
+    document.getElementById('stats-body').innerHTML = isCorridor
+      ? (() => {
+          const raw = primaries[idx].getLatLngs();
+          const lls = Array.isArray(raw[0]) ? raw[0] : raw;
+          let totalM = 0;
+          for (let i = 0; i < lls.length - 1; i++) totalM += map.distance(lls[i], lls[i+1]);
+          return `<div class="drow"><span class="k">Route</span><span class="v">${fmtDist(totalM)}</span></div>`;
+        })()
+      : `<div class="drow"><span class="k">Area</span><span class="v">${b.fg ? fmtArea(leafArea(b.fg)) : '—'}</span></div>`;
+    return;
+  }
+
+  document.getElementById('stats-title').textContent = 'Zone Areas';
+  document.getElementById('stats-body').innerHTML =
+    `<div class="drow"><span class="k">FG</span>           <span class="v" id="s-fg">—</span></div>
+     <div class="drow"><span class="k">OV (FG+CV)</span>   <span class="v" id="s-cv">—</span></div>
+     <div class="drow"><span class="k">OV+GRB</span>       <span class="v" id="s-grb">—</span></div>
+     <div class="drow"><span class="k">FG+CV+GRB+AV</span><span class="v" id="s-av">—</span></div>`;
+
+  if (isCorridor) {
+    const raw = primaries[idx].getLatLngs();
+    const lls = Array.isArray(raw[0]) ? raw[0] : raw;
+    let totalM = 0;
+    for (let i = 0; i < lls.length - 1; i++) totalM += map.distance(lls[i], lls[i+1]);
+    document.getElementById('s-fg').textContent = fmtDist(totalM) + ' route';
+  } else {
+    document.getElementById('s-fg').textContent = b.fg ? fmtArea(leafArea(b.fg)) : '—';
+  }
+
+  document.getElementById('s-cv').textContent  = b.cv  ? fmtArea(leafArea(b.cv))  : '—';
+  document.getElementById('s-grb').textContent = b.grb ? fmtArea(leafArea(b.grb)) : '—';
+  document.getElementById('s-av').textContent  = b.av  ? fmtArea(leafArea(b.av))  : '—';
+}
+
+function leafArea(ll) {
+  const lls = ll.getLatLngs()[0];
+  const c   = lls.map(p => [p.lng, p.lat]); c.push(c[0]);
+  return turf.area(turf.polygon([c]));
+}
+
+function fmtArea(m2) {
+  return m2 < 10000 ? m2.toFixed(0)        + ' m²'
+       : m2 < 1e6   ? (m2/10000).toFixed(2) + ' ha'
+       :               (m2/1e6).toFixed(4)   + ' km²';
+}
+
+// ══════════════════════════════════════════════════════════════
+// SEARCH
+// ══════════════════════════════════════════════════════════════
+function searchLocation() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+
+  // Direct lat,lng entry
+  if (/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(q)) {
+    const [lat, lng] = q.split(',').map(Number);
+    map.setView([lat, lng], 16); return;
+  }
+
+  // Eircode pattern: one letter + 2 digits + optional space + 4 alphanumeric chars
+  const isEircode = /^[A-Z]\d{2}\s?[A-Z0-9]{4}$/i.test(q.trim());
+
+  if (isEircode) {
+    // Use ArcGIS World Geocoding — supports Irish eircodes, no API key needed
+    const url = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates`
+      + `?SingleLine=${encodeURIComponent(q)}&countryCode=IRL&maxLocations=1&f=json&outFields=`;
+    fetch(url)
+      .then(r => r.json())
+      .then(res => {
+        const c = res.candidates?.[0];
+        if (!c) { alert('Eircode not found.'); return; }
+        map.setView([c.location.y, c.location.x], 16);
+      }).catch(() => alert('Eircode search failed. Check connection.'));
+  } else {
+    // General location search via Nominatim
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`)
+      .then(r => r.json())
+      .then(res => {
+        if (!res.length) { alert('Location not found.'); return; }
+        const { lat, lon, boundingbox: bb } = res[0];
+        bb ? map.fitBounds([[+bb[0],+bb[2]],[+bb[1],+bb[3]]]) : map.setView([+lat,+lon], 16);
+      }).catch(() => alert('Search failed. Check connection.'));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// KML IMPORT
+// ══════════════════════════════════════════════════════════════
+function importKML(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const xml = new DOMParser().parseFromString(e.target.result, 'text/xml');
+    const bounds = [];
+    for (const pm of xml.getElementsByTagName('Placemark')) {
+      for (const cel of pm.getElementsByTagName('coordinates')) {
+        const lls = cel.textContent.trim().split(/\s+/).map(p => {
+          const [lng, lat] = p.split(',').map(Number);
+          return isNaN(lat) ? null : [lat, lng];
+        }).filter(Boolean);
+        if (lls.length < 3) continue;
+        const color = mode === 'fg' ? '#22c55e' : '#ef4444';
+        const layer = L.polygon(lls, { color, fillColor: color, fillOpacity: 0.25, weight: 2 });
+        drawnItems.addLayer(layer);
+        const idx = primaries.length;
+        primaries.push(layer); bufs.push({ fg:null,cv:null,grb:null,av:null }); distLabels.push([]);
+        buildBuffers(idx);
+        lls.forEach(ll => bounds.push(ll));
+        layer.on('edit', () => { buildBuffers(primaries.indexOf(layer)); updateStats(); });
+      }
+    }
+    if (bounds.length) map.fitBounds(bounds);
+    updateStats();
+    updateSavePlanBtn();
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ══════════════════════════════════════════════════════════════
+// KML EXPORT
+// ══════════════════════════════════════════════════════════════
+function buildKMLString() {
+  if (!primaries.length) return '';
+  let kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n';
+
+  function lyrKML(lLayer, name, kmlColor) {
+    if (!lLayer) return '';
+    const lls = lLayer.getLatLngs()[0];
+    return `<Placemark>\n<name>${name}</name>\n<Style><LineStyle><color>${kmlColor}</color><width>2</width></LineStyle>`
+      + `<PolyStyle><color>40${kmlColor.slice(2)}</color></PolyStyle></Style>\n`
+      + `<Polygon><outerBoundaryIs><LinearRing><coordinates>\n`
+      + lls.map(p => `${p.lng},${p.lat},0`).join('\n')
+      + `\n${lls[0].lng},${lls[0].lat},0\n</coordinates></LinearRing></outerBoundaryIs></Polygon>\n</Placemark>\n`;
+  }
+
+  function corrKML(polyLayer, name) {
+    const raw = polyLayer.getLatLngs();
+    const lls = Array.isArray(raw[0]) ? raw[0] : raw;
+    return `<Placemark>\n<name>${name}</name>\n<Style><LineStyle><color>ff3B82F6</color><width>2</width></LineStyle></Style>\n`
+      + `<LineString><tessellate>1</tessellate><coordinates>\n`
+      + lls.map(p => `${p.lng},${p.lat},0`).join('\n')
+      + `\n</coordinates></LineString>\n</Placemark>\n`;
+  }
+
+  bufs.forEach((b, i) => {
+    if (corridorIndices.has(i)) kml += corrKML(primaries[i], `Corridor Centreline ${i+1}`);
+    kml += lyrKML(b.fg,  appMode === 'open' ? `Operating Area ${i+1}` : `Flight Geography ${i+1}`, 'ff22c55e');
+    if (appMode !== 'open') {
+      kml += lyrKML(b.cv,  `Contingency Volume ${i+1}`, 'ff0088ff');
+      kml += lyrKML(b.grb, `Ground Risk Buffer ${i+1}`, 'ff0000ff');
+      kml += lyrKML(b.av,  `Adjacent Volume ${i+1}`,    'ff404040');
+    }
+  });
+  kml += '</Document>\n</kml>';
+  return kml;
+}
+
+function exportKML() {
+  if (!primaries.length) { alert('Draw a polygon or corridor first.'); return; }
+  const kml = buildKMLString();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' }));
+  a.download = 'operational_volume.kml'; a.click();
+}
+
+// ══════════════════════════════════════════════════════════════
+// CLEAR
+// ══════════════════════════════════════════════════════════════
+function clearShapes() {
+  drawnItems.clearLayers();
+  bufs.forEach((_, i) => { clearBufsAt(i); removeDistLabels(i); });
+  primaries = []; bufs = []; distLabels = [];
+  corridorIndices.clear();
+  lastGrbTurf = null;
+  _clearMarkers();
+  document.getElementById('stats-card').style.display = 'none';
+  updateSavePlanBtn();
+}
+
+function clearAll() {
+  if (!confirm('Clear all polygons, corridors and buffers?')) return;
+  clearShapes();
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAP MARKERS
+// ══════════════════════════════════════════════════════════════
+const MARKER_TYPES = [
+  { id:'TOLP', label:'Take-Off & Landing Position', shape:'square',  bg:'#7C3AED', color:'#fff',    text:'H',   fs:0.52 },
+  { id:'RP',   label:'Remote Pilot Station',        shape:'square',  bg:'#16A34A', color:'#fff',    text:'RP',  fs:0.32 },
+  { id:'O',    label:'Observer',                    shape:'square',  bg:'#2563EB', color:'#fff',    text:'O',   fs:0.52 },
+  { id:'HZ',   label:'Hazard',                      shape:'diamond', bg:'#FACC15', color:'#111',    border:'#111',    text:'!',  fs:0.50 },
+  { id:'UP',   label:'Uninvolved Person',            shape:'diamond', bg:'#ffffff', color:'#DC2626', border:'#DC2626', text:'UP', fs:0.30 },
+  { id:'ELP',  label:'Emergency Landing Point',      shape:'square',  bg:'#B91C1C', color:'#fff',    text:'ELP', fs:0.28 },
+];
+
+let _markers    = [];    // { type, latlng, leafletMarker }
+
+function _markerSize() {
+  const z = map.getZoom();
+  // Range: 13px (z6) → 32px (z18+)
+  return Math.max(13, Math.min(32, Math.round(13 + (z - 6) * 1.58)));
+}
+
+function _iconHtml(typeId, size) {
+  const c = MARKER_TYPES.find(t => t.id === typeId);
+  if (!c) return '';
+  const bw = Math.max(2, Math.round(size * 0.075));
+  const fs = Math.round(size * c.fs);
+  // Use <span> throughout — <div> inside <button> is invalid HTML and gets stripped
+  if (c.shape === 'diamond') {
+    const inner = Math.round(size * 0.78);
+    const ibr   = Math.max(2, Math.round(size * 0.08));
+    return `<span style="width:${size}px;height:${size}px;display:inline-flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));flex-shrink:0;">` +
+      `<span style="width:${inner}px;height:${inner}px;background:${c.bg};border:${bw}px solid ${c.border};border-radius:${ibr}px;transform:rotate(45deg);display:inline-flex;align-items:center;justify-content:center;">` +
+      `<span style="transform:rotate(-45deg);font-size:${fs}px;font-weight:900;color:${c.color};font-family:Inter,system-ui,sans-serif;letter-spacing:-0.04em;line-height:1;">${c.text}</span>` +
+      `</span></span>`;
+  }
+  const br = Math.max(3, Math.round(size * 0.15));
+  return `<span style="width:${size}px;height:${size}px;background:${c.bg};border-radius:${br}px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);flex-shrink:0;">` +
+    `<span style="font-size:${fs}px;font-weight:900;color:${c.color};font-family:Inter,system-ui,sans-serif;letter-spacing:-0.04em;line-height:1;">${c.text}</span>` +
+    `</span>`;
+}
+
+function _leafletIcon(typeId, size) {
+  return L.divIcon({
+    html: _iconHtml(typeId, size),
+    className: '',
+    iconSize:    [size, size],
+    iconAnchor:  [size / 2, size / 2],
+    popupAnchor: [0, -(size / 2 + 6)],
+  });
+}
+
+function _doPlaceMarker(typeId, latlng) {
+  const size = _markerSize();
+  const lm = L.marker(latlng, { icon: _leafletIcon(typeId, size), draggable: false }).addTo(map);
+  const entry = { type: typeId, latlng, leafletMarker: lm };
+  _markers.push(entry);
+  lm.on('click', function(ev) {
+    if (isReadOnly) return;
+    L.DomEvent.stopPropagation(ev);
+    _showMarkerPopup(entry);
+  });
+  updateSavePlanBtn();
+}
+
+function _showMarkerPopup(entry) {
+  const idx = _markers.indexOf(entry);
+  const cfg = MARKER_TYPES.find(t => t.id === entry.type);
+  L.popup({ closeButton: true, className: 'marker-popup' })
+    .setLatLng(entry.latlng)
+    .setContent(
+      `<div style="font-family:Inter,system-ui,sans-serif;min-width:150px;">` +
+      `<div style="font-size:11px;font-weight:700;color:#1e293b;margin-bottom:10px;">${cfg ? cfg.label : entry.type}</div>` +
+      `<div style="display:flex;gap:6px;">` +
+      `<button onclick="_moveMarker(${idx})" style="flex:1;padding:6px 0;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:11px;font-weight:600;cursor:pointer;color:#1e293b;">✥ Move</button>` +
+      `<button onclick="_removeMarker(${idx})" style="flex:1;padding:6px 0;border:1px solid #fca5a5;border-radius:6px;background:#fee2e2;font-size:11px;font-weight:600;cursor:pointer;color:#dc2626;">🗑 Remove</button>` +
+      `</div></div>`
+    )
+    .openOn(map);
+}
+
+function _moveMarker(idx) {
+  map.closePopup();
+  const entry = _markers[idx];
+  if (!entry) return;
+  entry.leafletMarker.dragging.enable();
+  entry.leafletMarker.once('dragend', function() {
+    entry.latlng = entry.leafletMarker.getLatLng();
+    entry.leafletMarker.dragging.disable();
+    updateSavePlanBtn();
+  });
+}
+
+function _removeMarker(idx) {
+  map.closePopup();
+  const entry = _markers[idx];
+  if (!entry) return;
+  map.removeLayer(entry.leafletMarker);
+  _markers.splice(idx, 1);
+  updateSavePlanBtn();
+}
+
+function _updateAllMarkerSizes() {
+  const size = _markerSize();
+  _markers.forEach(entry => entry.leafletMarker.setIcon(_leafletIcon(entry.type, size)));
+}
+
+function _clearMarkers() {
+  _markers.forEach(m => map.removeLayer(m.leafletMarker));
+  _markers = [];
+}
+
+// ── Marker tray Leaflet control (drag-and-drop placement) ──────
+const _MarkerTray = L.Control.extend({
+  options: { position: 'topleft' },
+  onAdd(map) {
+    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control mkr-tray-ctrl');
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+
+    // Toggle button
+    const toggle = L.DomUtil.create('a', 'mkr-tray-toggle', container);
+    toggle.href = '#';
+    toggle.title = 'Place Markers — drag an icon onto the map';
+    toggle.innerHTML = '📍';
+
+    // Vertical tray of icon buttons
+    const tray = L.DomUtil.create('div', 'mkr-tray', container);
+    this._tray   = tray;
+    this._toggle = toggle;
+
+    MARKER_TYPES.forEach(cfg => {
+      const btn = L.DomUtil.create('a', 'mkr-tray-btn', tray);
+      btn.href      = '#';
+      btn.title     = cfg.label;
+      btn.draggable = true;
+      btn.dataset.type = cfg.id;
+      btn.innerHTML = _iconHtml(cfg.id, 26);
+
+      btn.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', cfg.id);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+
+      L.DomEvent.on(btn, 'click', L.DomEvent.stop);
+    });
+
+    L.DomEvent.on(toggle, 'click', e => {
+      L.DomEvent.stop(e);
+      const open = tray.style.display !== 'none';
+      tray.style.display = open ? 'none' : 'flex';
+      toggle.classList.toggle('mkr-tray-open', !open);
+    });
+
+    return container;
+  },
+  hide() {
+    if (this._toggle) this._toggle.style.display = 'none';
+  }
+});
+
+let _markerTrayCtrl = null;
+
+function setupMarkerTray() {
+  _markerTrayCtrl = new _MarkerTray();
+  _markerTrayCtrl.addTo(map);
+}
+
+function setupMarkerDrop() {
+  const mc = map.getContainer();
+  mc.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  mc.addEventListener('drop', e => {
+    e.preventDefault();
+    const typeId = e.dataTransfer.getData('text/plain');
+    if (!typeId || !MARKER_TYPES.find(t => t.id === typeId)) return;
+    const rect = mc.getBoundingClientRect();
+    const pt   = L.point(e.clientX - rect.left, e.clientY - rect.top);
+    _doPlaceMarker(typeId, map.containerPointToLatLng(pt));
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// PLAN INTEGRATION — postMessage when embedded in logbook checklist
+// ══════════════════════════════════════════════════════════════
+const _inIframe = (function() {
+  try { return window.self !== window.top; } catch(e) { return true; }
+})();
+
+function updateSavePlanBtn() {
+  const btn = document.getElementById('save-plan-btn');
+  const sep = document.getElementById('save-plan-sep');
+  if (!btn || !_inIframe || isReadOnly) return;
+  btn.style.display = '';
+  sep.style.display = '';
+  const hasShapes = primaries.length > 0;
+  btn.disabled = !hasShapes;
+  btn.style.opacity = hasShapes ? '1' : '0.45';
+}
+
+function saveToParent() {
+  if (!primaries.length) return;
+
+  // Convert each buffer layer to a GeoJSON polygon feature
+  function bufGeoJSON(lLayer) {
+    if (!lLayer) return null;
+    const lls = lLayer.getLatLngs()[0];
+    const coords = lls.map(p => [p.lng, p.lat]);
+    coords.push(coords[0]); // close ring
+    return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] }, properties: {} };
+  }
+
+  const shapes = primaries.map((layer, i) => {
+    const isCorridor = corridorIndices.has(i);
+    const b = bufs[i];
+    let primaryGeoJSON;
+    if (isCorridor) {
+      const raw = layer.getLatLngs();
+      const lls = Array.isArray(raw[0]) ? raw[0] : raw;
+      primaryGeoJSON = {
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: lls.map(p => [p.lng, p.lat]) },
+        properties: { type: 'corridor', corridorWidth }
+      };
+    } else {
+      primaryGeoJSON = layer.toGeoJSON();
+      primaryGeoJSON.properties = { type: 'polygon' };
+    }
+    return {
+      index: i,
+      shapeType: isCorridor ? 'corridor' : 'polygon',
+      primary: primaryGeoJSON,
+      buffers: { fg: bufGeoJSON(b.fg), cv: bufGeoJSON(b.cv), grb: bufGeoJSON(b.grb), av: bufGeoJSON(b.av) }
+    };
+  });
+
+  window.parent.postMessage({
+    type: 'ov_tool_save',
+    payload: {
+      appMode,
+      drawMode:      mode,
+      corridorWidth,
+      bufferWidths:  { cv: cvW, grb: grbW, av: avW },
+      markers:       _markers.map(m => ({ type: m.type, lat: m.latlng.lat, lng: m.latlng.lng })),
+      shapes,
+      kml:           buildKMLString()
+    }
+  }, '*');
+
+  // Visual confirmation
+  const btn = document.getElementById('save-plan-btn');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Saved';
+  btn.style.background = 'rgba(34,197,94,0.55)';
+  setTimeout(() => { btn.textContent = orig; btn.style.background = 'rgba(34,197,94,0.3)'; }, 1800);
+}
+
+// ── Restore shapes from parent init message ────────────────────
+function restoreFromParent(payload) {
+  const { shapes, appMode: initMode, drawMode: initDraw, corridorWidth: initCW,
+          bufferWidths: initBW, readOnly: initReadOnly } = payload;
+  if (!shapes || !shapes.length) return;
+
+  // Clear any existing state
+  clearShapes();
+
+  // Restore mode settings
+  if (initMode && initMode !== appMode) setAppMode(initMode);
+  if (initDraw && initDraw !== mode) setMode(initDraw);
+  if (initCW && typeof initCW === 'number') {
+    corridorWidth = initCW;
+    const slider = document.getElementById('corridor-width-slider');
+    const display = document.getElementById('corridor-width-display');
+    if (slider) slider.value = initCW;
+    if (display) display.textContent = initCW + ' m';
+  }
+
+  // ── Restore buffer widths BEFORE buildBuffers() is called ──────
+  if (initBW) {
+    if (initBW.cv  != null) { cvW  = +initBW.cv;  setEls('cv',  +initBW.cv);  }
+    if (initBW.grb != null) { grbW = +initBW.grb; setEls('grb', +initBW.grb); }
+    if (initBW.av  != null) { avW  = +initBW.av;  setEls('av',  +initBW.av);  }
+  }
+
+  shapes.forEach(shape => {
+    const { shapeType, primary } = shape;
+    if (!primary || !primary.geometry) return;
+
+    let layer;
+    const idx = primaries.length;
+
+    if (shapeType === 'corridor' && primary.geometry.type === 'LineString') {
+      const coords = primary.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+      layer = L.polyline(coords, { color: '#22c55e', weight: 2, opacity: 0.85 });
+      drawnItems.addLayer(layer);
+      primaries.push(layer);
+      bufs.push({ fg: null, cv: null, grb: null, av: null });
+      distLabels.push([]);
+      corridorIndices.add(idx);
+      addDistLabels(layer, idx);
+      addCorridorClickInsert(layer);
+    } else {
+      // Polygon — coordinates[0] is the outer ring
+      const ring = primary.geometry.coordinates[0];
+      if (!ring) return;
+      const coords = ring.map(([lng, lat]) => [lat, lng]);
+      layer = L.polygon(coords, { color: '#22c55e', weight: 2, opacity: 0.85 });
+      drawnItems.addLayer(layer);
+      primaries.push(layer);
+      bufs.push({ fg: null, cv: null, grb: null, av: null });
+      distLabels.push([]);
+    }
+
+    makeLayerDraggable(layer);
+    buildBuffers(idx);
+
+    layer.on('edit', () => {
+      const i = primaries.indexOf(layer);
+      if (corridorIndices.has(i)) { removeDistLabels(i); addDistLabels(layer, i); }
+      buildBuffers(i);
+      updateStats();
+    });
+  });
+
+  updateStats();
+  updateSavePlanBtn();
+
+  // Restore markers
+  if (Array.isArray(payload.markers)) {
+    payload.markers.forEach(m => _doPlaceMarker(m.type, L.latLng(m.lat, m.lng)));
+  }
+
+  // Zoom map to fit restored shapes
+  try {
+    const bounds = drawnItems.getBounds();
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] });
+  } catch (_) {}
+
+  // ── Apply read-only / view mode ─────────────────────────────────
+  if (initReadOnly) {
+    isReadOnly = true;
+    // Remove draw + edit controls so no shapes can be added or changed
+    if (drawControl) { try { map.removeControl(drawControl); } catch(_) {} }
+    // Hide the mode toggle (FG / GRB switch) and Import KML button
+    const modeToggleEl = document.getElementById('header-mode-toggle');
+    if (modeToggleEl) modeToggleEl.style.display = 'none';
+    // Ensure save button stays hidden
+    const saveBtn = document.getElementById('save-plan-btn');
+    const saveSep = document.getElementById('save-plan-sep');
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (saveSep) saveSep.style.display = 'none';
+    // Hide marker tray control (read-only — no new markers can be placed)
+    if (_markerTrayCtrl) _markerTrayCtrl.hide();
+    // Add VIEW MODE badge to header
+    const headerEl = document.querySelector('.header');
+    if (headerEl) {
+      const badge = document.createElement('div');
+      badge.style.cssText = [
+        'background:rgba(251,191,36,0.2)',
+        'border:1px solid rgba(251,191,36,0.55)',
+        'border-radius:6px',
+        'padding:3px 10px',
+        'font-size:11px',
+        'font-weight:700',
+        'color:#fbbf24',
+        'letter-spacing:0.06em',
+        'white-space:nowrap',
+        'flex-shrink:0',
+      ].join(';');
+      badge.textContent = '👁  VIEW MODE';
+      headerEl.appendChild(badge);
+    }
+  }
+}
+
+// Listen for parent init message (sent after ov_tool_ready)
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'ov_tool_init') return;
+  const payload = e.data.payload;
+  restoreFromParent(payload);
+});
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+window.onload = function() {
+  initMap();
+  // Signal parent that map is ready to receive initial shapes
+  if (_inIframe) {
+    try { window.parent.postMessage({ type: 'ov_tool_ready' }, '*'); } catch (_) {}
+  }
+};
+
+</script>
 
 </body>
 </html>
